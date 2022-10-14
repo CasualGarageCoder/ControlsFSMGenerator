@@ -6,7 +6,7 @@ import queue
 from pprint import pprint
 import getopt
 
-def generate_specific(config_filepath, controls):
+def generate_specific(config_filepath, controls, generate_debug):
     order_matters = []
     sequences = {}
     config_name = ""
@@ -215,6 +215,26 @@ def generate_specific(config_filepath, controls):
         for s in range(len(sequences_list)):
             specific_constants_singleton.write("const SEQUENCE_%s_%s : int = %d\n" % (config_name.upper(), sequences_list[s]["Name"].upper(), s))
 
+    if generate_debug:
+        with open("build/%s_debug.dot" % config_name, "w") as debug_file:
+            debug_file.write("digraph debug_fsm {\n")
+            debug_file.write("\tedge [arrowhead=normal, fontsize=6];\n")
+            debug_file.write("\tnode [shape=box, fontsize=8];\n")
+            for s in enhanced_transitions:
+                start_name = s["State"]
+                for t in s["Triggers"]:
+                    edge_description = "Timeout"
+                    edge_color = "blue"
+                    edge_fire = ""
+                    if "Control" in t:
+                        edge_description = t["Control"]
+                        edge_color = "green" if t["Pressed"] else "red"
+                        if "Fire" in t:
+                            edge_fire = ", headlabel = \"%s\", style=\"bold\"" % t["Fire"]
+                    debug_file.write("\t\"%s\" -> \"%s\" [taillabel = \"%s\", color=%s%s];\n" % (start_name, t["Target"], edge_description, edge_color, edge_fire))
+            debug_file.write("}\n")
+            debug_file.close()
+
 def generate_main_constants(controls):
     with open("build/GlobalControls.gd", "w") as global_constants_singleton:
         global_constants_singleton.write("# Global constants for player controls identification\nextends Node\n\n")
@@ -232,17 +252,20 @@ def generate_main_constants(controls):
 def main():
     global_filepath = ""
     specific_filepaths = []
+    generate_debug = False
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:],"g:s:")
+        opts, args = getopt.getopt(sys.argv[1:],"dg:s:")
     except getopt.GetoptError:
-        print("%s -g [path_to_global_conf.json] -s [path_to_first_specific.json] -s ..." % sys.argv[0])
+        print("%s -d -g [path_to_global_conf.json] -s [path_to_first_specific.json] -s ..." % sys.argv[0])
         sys_exit(1)
     for opt, arg in opts:
         if opt == "-g":
             global_filepath = arg
         elif opt == "-s":
             specific_filepaths.append(arg)
+        elif opt == "-d":
+            generate_debug = True
 
     print("Global Filepath = '%s'" % global_filepath)
     print("Specific Filepaths = '%s'" % specific_filepaths)
@@ -258,7 +281,7 @@ def main():
 
     for filepath in specific_filepaths:
         print("Read '%s'" % filepath)
-        generate_specific(filepath, controls)
+        generate_specific(filepath, controls, generate_debug)
 
 if __name__ == "__main__":
     main()
