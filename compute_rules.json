@@ -1,0 +1,38 @@
+{
+    "Controls" : [ "LEFT", "RIGHT", "DOWN", "UP" ],
+    "Rules" : {
+        "Order" : [ "LEFT", "RIGHT" ],
+        "Sequences" : {
+            "Timeout" : 160,
+            "List" : [
+                {
+                    "Name" : "Special_Move",
+                    "Sequence" : [
+                        "DOWN",
+                        "DOWN"
+                    ],
+                    "Duration" : 2000,
+                    "Cooldown" : 50000
+                },
+                {
+                    "Name" : "Dash_Left",
+                    "Sequence" : [
+                        "LEFT",
+                        "LEFT"
+                    ],
+                    "Duration" : 16,
+                    "Cooldown": 10000
+                },
+                {
+                    "Name" : "Dash_Right",
+                    "Sequence" : [
+                        "RIGHT",
+                        "RIGHT"
+                    ],
+                    "Duration" : 16,
+                    "Cooldown" : 10000
+                }
+            ]
+        }
+    }
+}
