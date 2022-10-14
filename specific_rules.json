@@ -1,5 +1,6 @@
 {
-    "Controls" : [ "LEFT", "RIGHT", "DOWN", "UP" ],
+    "Name" : "Specific",
+    "Description" : "Specific controls setting. Determine sequences and possible ordering in controls",
     "Rules" : {
         "Order" : [ "LEFT", "RIGHT" ],
         "Sequences" : {

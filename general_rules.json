@@ -1,0 +1,4 @@
+{
+    "Description" : "Enumerates player controls. Further usage include controls grouping to distinguish usage - two sticks games for example -",
+    "Controls" : [ "LEFT", "RIGHT", "UP", "DOWN" ]
+}
