@@ -209,8 +209,11 @@ def generate_specific(config_filepath, controls):
         generated_file.close()
         print("Result stored in %s" % save_target)
 
-def add_double_quotes(s):
-    return "\"%s\"" % s
+    with open("build/%sControls.gd" % config_name, "w") as specific_constants_singleton:
+        specific_constants_singleton.write("# Constants for character '%s' controls\nextends Node\n\n" % config_name)
+        sequences_list = sequences["List"]
+        for s in range(len(sequences_list)):
+            specific_constants_singleton.write("const SEQUENCE_%s_%s : int = %d\n" % (config_name.upper(), sequences_list[s]["Name"].upper(), s))
 
 def generate_main_constants(controls):
     with open("build/GlobalControls.gd", "w") as global_constants_singleton:
@@ -218,7 +221,7 @@ def generate_main_constants(controls):
         for c in range(len(controls)):
             global_constants_singleton.write("const PLAYER_CONTROL_%s : int = %d\n" % (controls[c], c))
         global_constants_singleton.write("const PLAYER_CONTROLS_DESCRIPTION : Array = [ ")
-        description = ",".join(map(add_double_quotes, controls))
+        description = ",".join(map(lambda s : "\"%s\"" % s.upper(), controls))
         global_constants_singleton.write(description)
         global_constants_singleton.write(" ]\n")
         global_constants_singleton.close()
