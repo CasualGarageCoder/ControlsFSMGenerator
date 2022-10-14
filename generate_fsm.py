@@ -130,7 +130,7 @@ def generate_specific(config_filepath, controls):
                         new_sequence = sequences_tree
                         new_progress = []
                     else:
-                        trigger["Timer"] = True
+                        trigger["Timer"] = "SequenceTimer"
                         new_sequence = new_sequence[c]
                         new_progress.append(c)
                 else:
@@ -211,32 +211,34 @@ def generate_specific(config_filepath, controls):
 
 ## Main ##
 
-global_filepath = ""
-specific_filepaths = []
+def main():
+    global_filepath = ""
+    specific_filepaths = []
 
-try:
-    opts, args = getopt.getopt(sys.argv[1:],"g:s:")
-except getopt.GetoptError:
-    print("%s -g [path_to_global_conf.json] -s [path_to_first_specific.json] -s ..." % sys.argv[0])
-    sys_exit(1)
-for opt, arg in opts:
-    if opt == "-g":
-        global_filepath = arg
-    elif opt == "-s":
-        specific_filepaths.append(arg)
+    try:
+        opts, args = getopt.getopt(sys.argv[1:],"g:s:")
+    except getopt.GetoptError:
+        print("%s -g [path_to_global_conf.json] -s [path_to_first_specific.json] -s ..." % sys.argv[0])
+        sys_exit(1)
+    for opt, arg in opts:
+        if opt == "-g":
+            global_filepath = arg
+        elif opt == "-s":
+            specific_filepaths.append(arg)
 
-print("Global Filepath = '%s'" % global_filepath)
-print("Specific Filepaths = '%s'" % specific_filepaths)
+    print("Global Filepath = '%s'" % global_filepath)
+    print("Specific Filepaths = '%s'" % specific_filepaths)
 
-controls = []
+    controls = []
 
-with open(global_filepath, "r") as config_file:
-    configuration = json.load(config_file)
-    config_file.close()
-    controls = configuration["Controls"]
+    with open(global_filepath, "r") as config_file:
+        configuration = json.load(config_file)
+        config_file.close()
+        controls = configuration["Controls"]
 
-for filepath in specific_filepaths:
-    print("Read '%s'" % filepath)
-    generate_specific(filepath, controls)
+    for filepath in specific_filepaths:
+        print("Read '%s'" % filepath)
+        generate_specific(filepath, controls)
 
-
+if __name__ == "__main__":
+    main()
