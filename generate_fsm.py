@@ -209,6 +209,21 @@ def generate_specific(config_filepath, controls):
         generated_file.close()
         print("Result stored in %s" % save_target)
 
+def add_double_quotes(s):
+    return "\"%s\"" % s
+
+def generate_main_constants(controls):
+    with open("build/GlobalControls.gd", "w") as global_constants_singleton:
+        global_constants_singleton.write("# Global constants for player controls identification\nextends Node\n\n")
+        for c in range(len(controls)):
+            global_constants_singleton.write("const PLAYER_CONTROL_%s : int = %d\n" % (controls[c], c))
+        global_constants_singleton.write("const PLAYER_CONTROLS_DESCRIPTION : Array = [ ")
+        description = ",".join(map(add_double_quotes, controls))
+        global_constants_singleton.write(description)
+        global_constants_singleton.write(" ]\n")
+        global_constants_singleton.close()
+
+
 ## Main ##
 
 def main():
@@ -235,6 +250,8 @@ def main():
         configuration = json.load(config_file)
         config_file.close()
         controls = configuration["Controls"]
+    
+    generate_main_constants(controls)
 
     for filepath in specific_filepaths:
         print("Read '%s'" % filepath)
