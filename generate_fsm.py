@@ -7,9 +7,14 @@ from pprint import pprint
 import getopt
 
 def generate_specific(config_filepath, controls, generate_debug):
+    control_id = {}
+    for i in range(len(controls)):
+        control_id[controls[i]] = i
+
     order_matters = []
     sequences = {}
     config_name = ""
+    sequence_timeout = 0
     # Command line arguments are controls.
     with open(config_filepath, "r") as config_file:
         configuration = json.load(config_file)
@@ -17,6 +22,7 @@ def generate_specific(config_filepath, controls, generate_debug):
         order_matters = configuration["Rules"]["Order"]
         sequences = configuration["Rules"]["Sequences"]
         config_name = configuration["Name"]
+        sequence_timeout = configuration["Rules"]["Sequences"]["Timeout"]
 
     # Sequences define a tree. Each leaf is a special movement.
 
@@ -85,7 +91,7 @@ def generate_specific(config_filepath, controls, generate_debug):
             if target_name == "":
                 target_name = "Idle"
             trigger = {
-                    "Timeout" : True,
+                    "Timeout" : "SequenceTimer",
                     "Target" : target_name
             }
             states[current_state]["Transitions"].append(trigger)
@@ -190,6 +196,17 @@ def generate_specific(config_filepath, controls, generate_debug):
 
     print("There is %d states" % len(states))
 
+    sequences_list = sequences["List"]
+    sequences_id = {}
+    pre_computed_sequences = []
+    for i in range(len(sequences_list)):
+        sequences_id[sequences_list[i]["Name"]] = i
+        new_sequence = {}
+        new_sequence["Cooldown"] = sequences_list[i]["Cooldown"]
+        new_sequence["Duration"] = sequences_list[i]["Duration"]
+        pre_computed_sequences.append(new_sequence)
+
+    # Generate human readable description file.
     enhanced_transitions = []
 
     for name in states:
@@ -199,7 +216,7 @@ def generate_specific(config_filepath, controls, generate_debug):
         new_state["Triggers"] = states[name]["Transitions"]
         enhanced_transitions.append(new_state)
 
-    complete_content = { "Start" : "Idle", "Transitions" : enhanced_transitions }
+    complete_content = { "Start" : "Idle", "SequenceTimeout" : sequence_timeout, "Transitions" : enhanced_transitions }
 
     file_content = json.dumps(complete_content, indent=4)
 
@@ -208,6 +225,45 @@ def generate_specific(config_filepath, controls, generate_debug):
         generated_file.write(file_content)
         generated_file.close()
         print("Result stored in %s" % save_target)
+
+    # Generate pre-computed description file.
+    states_id = {}
+    for i in range(len(enhanced_transitions)):
+        states_id[enhanced_transitions[i]["State"]] = i
+
+    pre_computed = {
+            "Start" : states_id["Idle"],
+            "ControlCount" : len(controls),
+            "SequenceTimeout" : sequence_timeout
+    }
+    pre_computed["Sequences"] = pre_computed_sequences
+    pre_computed_transitions = []
+    for name in states:
+        new_state = []
+        # No need to identify the state as the ID = index in the array
+        for t in states[name]["Transitions"]:
+            new_transition = {}
+            if "Control" in t:
+                new_transition["Control"] = control_id[t["Control"]]
+                new_transition["Pressed"] = t["Pressed"]
+            new_transition["Target"] = states_id[t["Target"]]
+            if "Timer" in t:
+                new_transition["Timer"] = t["Timer"]
+            if "Timeout" in t:
+                new_transition["Timeout"] = t["Timeout"]
+            if "Fire" in t:
+                new_transition["Fire"] = sequences_id[t["Fire"]]
+            new_state.append(new_transition)
+        pre_computed_transitions.append(new_state)
+    pre_computed["Transitions"] = pre_computed_transitions
+
+    file_content = json.dumps(pre_computed, indent=4)
+
+    save_target = "build/%s_fsm_pc.json" % config_name
+    with open(save_target, "w") as generated_file:
+        generated_file.write(file_content)
+        generated_file.close()
+        print("Precomputed result stored in %s" % save_target)
 
     with open("build/%sControls.gd" % config_name, "w") as specific_constants_singleton:
         specific_constants_singleton.write("# Constants for character '%s' controls\nextends Node\n\n" % config_name)
