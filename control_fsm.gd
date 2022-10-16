@@ -19,26 +19,29 @@ class IntermediateState:
 class ControlSequence:
 	var duration : int # ms
 	var cooldown : int # ms
-	
-	func _to_string():
-		print("Duration %dms, Cooldown %sms" % [duration, cooldown])
 
 onready var states : Array = [] # Array of IntermediateStates.
 
+# Current state.
 onready var current_state : int
 
-onready var control_count : int
-
+# Timer timeout in ms.
 onready var timer_timeout : Array = []
 
+# Date at which the timer will expire. If -1, the timer is not in use.
 onready var timer_expire : Array = []
 
+# Sequence description for cooldown and duration.
 onready var sequence : Array = []
 
+# Current state of the controls. The derived scripts might use this to determine animations,
+# movements and so on.
 onready var current_control : Array = []
 
+# Fake time. Fast alternative to OS calls.
 onready var current_time : int = 0
 
+## Initialisation. Read the JSON, collect and compute useful data.
 func _ready():
 	var file = File.new()
 	var err = file.open(descriptor_filename, File.READ)
@@ -47,7 +50,7 @@ func _ready():
 		var json_content = parse_json(text_content)
 		# Let the fun begins.
 		current_state = json_content["Start"]
-		control_count = json_content["ControlCount"]
+		var control_count = json_content["ControlCount"]
 		for _i in range(control_count):
 			current_control.append(false)
 		var json_sequences : Array = json_content["Sequences"]
@@ -93,41 +96,32 @@ func _ready():
 
 # Entry point : Set the current control change.
 func set_move(control : int, pressed : bool) -> void:
-	print("---- Entry state %d (%s) ----" % [current_state, states[current_state].state_name])
-	print("Set move %d = %s" % [control, pressed])
 	var filtered_control : int = filter_control(control, pressed)
 	current_control[filtered_control] = pressed
-	print(current_control)
 	for timer in states[current_state].timer_reset[filtered_control]:
 		timer_expire[timer] = current_time + timer_timeout[timer]
 	var seq_id : int = states[current_state].fire[filtered_control]
 	var override_sequence : bool = true
 	if pressed and seq_id >= 0:
-		print("Try to activate sequence %d (out of %d)" % [seq_id, sequence.size()])
 		timer_expire[sequence.size() * 2] = -1
 		if timer_expire[(seq_id * 2) + 1] < 0: # If the timer is a cooldown, we don't activate special move.
 			timer_expire[seq_id * 2] = current_time + sequence[seq_id].duration
 			timer_expire[(seq_id * 2) + 1] = current_time + sequence[seq_id].cooldown
 			override_sequence = activate_sequence(seq_id, sequence[seq_id].duration, sequence[seq_id].cooldown)
-		else:
-			print("Cooldown still active for sequence %d" % seq_id)
 
 	# Determine if we are in a sequence "dead zone".
 	var in_sequence : bool = false
 	for i in range(sequence.size()):
 		in_sequence = in_sequence || timer_expire[i * 2] > 0
 
-	if in_sequence:
-		print("Still in at least one sequence 'dead zone'")
-
 	if can_move() and override_sequence and not in_sequence:
 		process_move(filtered_control, pressed)
 
 	# Switch to next state.
-	var target_name = states[current_state].access_name[filtered_control]
 	current_state = states[current_state].access[filtered_control]
-	print("---- Exit state %d (%s / %s) ----" % [current_state, states[current_state].state_name, target_name])
 
+# Processing function. Deal with the different timeouts.
+# Uses delta to increment the current time. It's a quick alternative to OS calls.
 func _process(delta : float):
 	current_time += int(delta * 1000)
 	for i in range(timer_expire.size()):
@@ -139,45 +133,32 @@ func _process(delta : float):
 			if i == (timer_expire.size() - 1):
 				var next_state : int = states[current_state].timeout_route
 				current_state = next_state
-				print("---- Timeout to state %d (%s) ----" % [current_state, states[current_state].state_name])
-
 
 ## "Virtual Methods"
 
-func activate_sequence(sequence_id : int, _duration : int, _cooldown : int) -> bool:
-	print("Activate sequence %d" % sequence_id)
+# Invoked when a sequence has been completed.
+# sequence_id is the identifier of the sequence (which value matches a constant generated in the
+#   singleton.
+# duration and cooldown are provided for information only. The duration "dead zone" and the
+#   cooldown timer are already managed.
+func activate_sequence(_sequence_id : int, _duration : int, _cooldown : int) -> bool:
 	return false
 
-func process_move(control : int, pressed : bool) -> void:
-	print("Process move %d = %s" % [control, pressed])
+# Invoked when a control can be processed (i.e. not in a sequence dead zone).
+#   Can be used for trigerring an attack, a jump or any kind in instant move.
+func process_move(_control : int, _pressed : bool) -> void:
+	pass
 
-func on_timer_expire(timer : int) -> void:
-	print("Timer %s has expired" % timer)
+# Invoked whenever a timer expires. The timer identifier matches constants generated
+#   in the associated singleton.
+func on_timer_expire(_timer : int) -> void:
+	pass
 
+# Invoked before effectively process the control. Can be used for simulation of 'confusion spell'.
 func filter_control(control : int, _pressed : int) -> int:
 	return control
 
+# Invoked to determine if a control change can be processed. Can be used to simulate stun or
+#   other kind of behavior modifier.
 func can_move() -> bool:
 	return true
-
-## Debug
-
-func _input(event):
-	## Debug specific to four controls as defined in the example rules file.
-	if event.is_action_pressed("ui_down") && (!event.is_echo()):
-		set_move(3, true)
-	if event.is_action_pressed("ui_up") && (!event.is_echo()):
-		set_move(2, true)
-	if event.is_action_pressed("ui_right") && (!event.is_echo()):
-		set_move(1, true)
-	if event.is_action_pressed("ui_left") && (!event.is_echo()):
-		set_move(0, true)
-
-	if event.is_action_released("ui_down") && (!event.is_echo()):
-		set_move(3, false)
-	if event.is_action_released("ui_up") && (!event.is_echo()):
-		set_move(2, false)
-	if event.is_action_released("ui_right") && (!event.is_echo()):
-		set_move(1, false)
-	if event.is_action_released("ui_left") && (!event.is_echo()):
-		set_move(0, false)
