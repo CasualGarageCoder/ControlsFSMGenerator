@@ -4,7 +4,7 @@
     "Rules" : {
         "Order" : [ "LEFT", "RIGHT" ],
         "Sequences" : {
-            "Timeout" : 160,
+            "Timeout" : 300,
             "List" : [
                 {
                     "Name" : "Special_Move",

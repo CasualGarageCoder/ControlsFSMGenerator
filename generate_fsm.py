@@ -240,13 +240,17 @@ def generate_specific(config_filepath, controls, generate_debug):
     pre_computed_transitions = []
     for name in states:
         new_state = []
+        new_state.append({ "Name" : name })
         # No need to identify the state as the ID = index in the array
         for t in states[name]["Transitions"]:
+            if "Description" in t:
+                continue
             new_transition = {}
             if "Control" in t:
                 new_transition["Control"] = control_id[t["Control"]]
                 new_transition["Pressed"] = t["Pressed"]
             new_transition["Target"] = states_id[t["Target"]]
+            new_transition["State"] = t["Target"]
             if "Timer" in t:
                 new_transition["Timer"] = t["Timer"]
             if "Timeout" in t:
@@ -270,6 +274,9 @@ def generate_specific(config_filepath, controls, generate_debug):
         sequences_list = sequences["List"]
         for s in range(len(sequences_list)):
             specific_constants_singleton.write("const SEQUENCE_%s_%s : int = %d\n" % (config_name.upper(), sequences_list[s]["Name"].upper(), s))
+            specific_constants_singleton.write("const SEQUENCE_%s_%s_DURATION_TIMER : int = %d\n" % (config_name.upper(), sequences_list[s]["Name"].upper(), (s * 2)))
+            specific_constants_singleton.write("const SEQUENCE_%s_%s_COOLDOWN_TIMER : int = %d\n" % (config_name.upper(), sequences_list[s]["Name"].upper(), ((s * 2) + 1)))
+        specific_constants_singleton.write("const SEQUENCE_%s_SEQUENCE_TIMER : int = %d\n" % (config_name.upper(), len(sequences_list) * 2))
 
     if generate_debug:
         with open("build/%s_debug.dot" % config_name, "w") as debug_file:
