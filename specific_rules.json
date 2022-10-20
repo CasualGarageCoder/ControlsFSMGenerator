@@ -3,6 +3,127 @@
     "Description" : "Specific controls setting. Determine sequences and possible ordering in controls",
     "Rules" : {
         "Order" : [ "LEFT", "RIGHT" ],
+        "Symbols" : [
+            {
+                "Name" : "lastKey",
+                "Type" : "Control",
+                "Default" : "LEFT"
+            },
+            {
+                "Name" : "goingUp",
+                "Type" : "bool",
+                "Default" : "false"
+            },
+            {
+                "Name" : "onGround",
+                "Type" : "bool",
+                "Default" : "false"
+            },
+            {
+                "Name" : "moving",
+                "Type" : "bool",
+                "Default" : "false"
+            },
+            {
+                "Name" : "attacking",
+                "Type" : "bool"
+            }
+        ],
+        "Controlable" : {
+            "stun" : false,
+            "dying" : false,
+            "attacked" : false
+        },
+        "Events" : {
+            "jump_left" : {
+                "lastKey" : "LEFT",
+                "goingUp" : true
+            },
+            "jump_right" : {
+                "lastKey" : "RIGHT",
+                "goingUp" : true
+            },
+            "descent_left" : {
+                "lastKey" : "LEFT",
+                "goingUp" : false,
+                "onGround" : false
+            },
+            "descent_right" : {
+                "lastKey" : "RIGHT",
+                "goingUp" : false,
+                "onGround" : false
+            },
+            "idle_right" : {
+                "lastKey" : "RIGHT",
+                "onGround" : true,
+                "moving" : false
+            },
+            "idle_left" : {
+                "lastKey" : "LEFT",
+                "onGround" : true,
+                "moving" : false
+            },
+            "run_right" : {
+                "lastKey" : "RIGHT",
+                "onGround" : true,
+                "moving" : true
+            },
+            "run_left" : {
+                "lastKey" : "LEFT",
+                "onGround" : true,
+                "moving" : true
+            },
+            "attack_right" : {
+                "lastKey" : "RIGHT",
+                "attacking" : true
+            },
+            "attack_left" : {
+                "lastKey" : "LEFT",
+                "attacking" : true
+            },
+            "attacked_right" : {
+                "lastKey" : "RIGHT",
+                "attacked" : true,
+                "dying" : false
+            },
+            "attacked_left" : {
+                "lastKey" : "RIGHT",
+                "attacked" : true,
+                "dying": false
+            },
+            "dying_right" : {
+                "lastKey" : "RIGHT",
+                "attacked" : true,
+                "dying" : true
+            },
+            "dying_left" : {
+                "lastKey" : "LEFT",
+                "attacked" : "true",
+                "dying" : true
+            },
+            "stunned_left" : {
+                "direction" : "LEFT",
+                "stun" : true
+            },
+            "stunned_right" : {
+                "direction" : "RIGHT",
+                "stun" : true
+            }
+        },
+        "Trigger" : {
+            "UP" : {
+                "onPress" : [ "goingUp", "onGround" ]
+            },
+            "LEFT" : {
+                "onPress" : [ "lastKey", "moving", "attacking" ],
+                "onRelease" : [ "lastKey", "moving" ]
+            },
+            "RIGHT" : {
+                "onPress" : [ "lastKey", "moving", "attacking" ],
+                "onRelease" : [ "lastKey", "moving" ]
+            }
+        },
+        "Frame" : [ "onGround", "goingUp", "direction" ],
         "Sequences" : {
             "Timeout" : 300,
             "List" : [
@@ -13,7 +134,9 @@
                         "DOWN"
                     ],
                     "Duration" : 2000,
-                    "Cooldown" : 50000
+                    "Cooldown" : 50000,
+                    "Distribute" : [ "stun" ],
+                    "Self" : [ "invulnerable" ]
                 },
                 {
                     "Name" : "Dash_Left",

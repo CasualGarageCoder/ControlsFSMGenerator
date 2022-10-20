@@ -1,4 +1,30 @@
 {
     "Description" : "Enumerates player controls. Further usage include controls grouping to distinguish usage - two sticks games for example -",
-    "Controls" : [ "LEFT", "RIGHT", "UP", "DOWN" ]
+    "Controls" : [ "LEFT", "RIGHT", "UP", "DOWN" ],
+    "Symbols" : [
+        {
+            "Name" : "stun",
+            "Type" : "Timer",
+            "Default" : 3000
+        },
+        {
+            "Name" : "invulnerable",
+            "Type" : "Timer",
+            "Default" : 5000
+        },
+        {
+            "Name" : "attacked",
+            "Type" : "bool",
+            "Default" : "False"
+        },
+        {
+            "Name" : "dying",
+            "Type" : "Timer",
+            "Default" : 1000
+        },
+        {
+            "Name" : "direction",
+            "Type" : "Control"
+        }
+    ]
 }
