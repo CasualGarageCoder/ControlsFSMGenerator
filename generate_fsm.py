@@ -6,7 +6,13 @@ import queue
 from pprint import pprint
 import getopt
 
-def generate_specific(config_filepath, controls, generate_debug):
+def create_decision_tree(rules, attributes):
+    # rules = dictionary of rules
+    # attributes = all the attributes in the rules with name and types.
+    branches = {}
+    
+
+def generate_specific(config_filepath, controls, common_symbols, generate_debug):
     control_id = {}
     for i in range(len(controls)):
         control_id[controls[i]] = i
@@ -15,6 +21,8 @@ def generate_specific(config_filepath, controls, generate_debug):
     sequences = {}
     config_name = ""
     sequence_timeout = 0
+    local_symbols = []
+    events = {}
     # Command line arguments are controls.
     with open(config_filepath, "r") as config_file:
         configuration = json.load(config_file)
@@ -23,9 +31,58 @@ def generate_specific(config_filepath, controls, generate_debug):
         sequences = configuration["Rules"]["Sequences"]
         config_name = configuration["Name"]
         sequence_timeout = configuration["Rules"]["Sequences"]["Timeout"]
+        local_symbols = configuration["Rules"]["Symbols"]
+        events = configuration["Rules"]["Events"]
+
+    # Determine events condition tree
+
+    # Check that local symbols don't overshadow common symbols.
+    for i in local_symbols:
+        symbol_name = i["Name"]
+        for j in common_symbols:
+            if symbol_name == j["Name"]:
+                print("!!! The symbol '%s' is declared both globally and locally !!!" % symbol_name)
+                sys.exit(1)
+    # Merge the symbols.
+    symbols = common_symbols.copy()
+    symbols += local_symbols
+    symbols_types = {}
+    for s in symbols:
+        symbol_name = s["Name"]
+        symbol_type = s["Type"]
+        symbols_types[symbol_name] = symbol_type
+
+    # Using the events, build the decision tree.
+    ## First, verify that the symbols of the conditions exist.
+    for event in events:
+        event_conditions = events[event]
+        for condition_symbol in event_conditions:
+            # Existence check
+            if not condition_symbol in symbols_types:
+                print("!!! In event '%s', condition symbol '%s' is not defined !!!" % (event, condition_symbol))
+                sys.exit(1)
+            # Type check
+            type_to_check = type(event_conditions[condition_symbol])
+            declared_type = symbols_types[condition_symbol]
+            if (((declared_type == "bool" or declared_type == "Timer") and (not type_to_check is bool)) or 
+                (declared_type == "Control" and (not (type_to_check is str and event_conditions[condition_symbol] in controls)))):
+                print("!!! In event '%s', condition symbol '%s' type mismatch !!!" % (event, condition_symbol))
+                sys.exit(1)
+
+    ## Everything is ok. Now, check if we can build a decision tree.
+    ### Complete the rules.
+    for event in events:
+        for s in symbols_types:
+            if not s in events[event]:
+                events[event][s] = None
+
+
+    pprint(events)
+
+    ### TEMP
+    sys.exit(1)
 
     # Sequences define a tree. Each leaf is a special movement.
-
     sequences_tree = {}
 
     for s in sequences["List"]:
@@ -298,7 +355,7 @@ def generate_specific(config_filepath, controls, generate_debug):
             debug_file.write("}\n")
             debug_file.close()
 
-def generate_main_constants(controls):
+def generate_main_constants(controls, common_symbols):
     with open("build/GlobalControls.gd", "w") as global_constants_singleton:
         global_constants_singleton.write("# Global constants for player controls identification\nextends Node\n\n")
         for c in range(len(controls)):
@@ -308,6 +365,7 @@ def generate_main_constants(controls):
         global_constants_singleton.write(description)
         global_constants_singleton.write(" ]\n")
         global_constants_singleton.close()
+        # TODO Integrate common symbols.
 
 
 ## Main ##
@@ -334,17 +392,19 @@ def main():
     print("Specific Filepaths = '%s'" % specific_filepaths)
 
     controls = []
+    common_symbols = []
 
     with open(global_filepath, "r") as config_file:
         configuration = json.load(config_file)
         config_file.close()
         controls = configuration["Controls"]
+        common_symbols = configuration["Symbols"]
     
-    generate_main_constants(controls)
+    generate_main_constants(controls, common_symbols)
 
     for filepath in specific_filepaths:
         print("Read '%s'" % filepath)
-        generate_specific(filepath, controls, generate_debug)
+        generate_specific(filepath, controls, common_symbols, generate_debug)
 
 if __name__ == "__main__":
     main()

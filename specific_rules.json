@@ -98,7 +98,7 @@
             },
             "dying_left" : {
                 "lastKey" : "LEFT",
-                "attacked" : "true",
+                "attacked" : true,
                 "dying" : true
             },
             "stunned_left" : {
