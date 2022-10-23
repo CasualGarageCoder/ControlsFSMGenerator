@@ -87,7 +87,7 @@
                 "dying" : false
             },
             "attacked_left" : {
-                "lastKey" : "RIGHT",
+                "lastKey" : "LEFT",
                 "attacked" : true,
                 "dying": false
             },

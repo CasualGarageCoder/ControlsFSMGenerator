@@ -3,13 +3,172 @@
 import sys
 import json
 import queue
+from random import randint
 from pprint import pprint
 import getopt
 
-def create_decision_tree(rules, attributes):
+type_to_class = { "bool" : bool, "Timer" : bool, "Control" : int }
+
+# current_rules : Rules that are still to evaluate.
+# attr : array with names of attribute to evaluate.
+# return map from attribute name to number of possible values.
+def compute_attributes_values(current_rules, attr):
+    set_of_values = dict((k, []) for k in attr)
+    for c in current_rules:
+        for a in attr:
+            if not current_rules[c][a] in set_of_values[a]:
+                set_of_values[a].append(current_rules[c][a])
+    return set_of_values
+
+def compute_attributes_from_rules(current_rules):
+    attributes = []
+    for c in current_rules:
+        for a in current_rules[c]:
+            #if current_rules[c][a] != None:
+            attributes.append(a)
+    return set(attributes)
+
+# current_rules : Rules that left.
+# attr : Attributes to inspect.
+# return a map from attributes name to the attribute effectiveness score.
+def compute_attributes_effectiveness(current_rules, attr):
+    # For the sake of simplicity : number of rules = number of class (as in classification)
+    # Warning ! It may not be the case in further developments.
+    ae = dict((k, 0) for k in attr)
+    for r in current_rules:
+        for a in current_rules[r]:
+            if current_rules[r][a] == None:
+                ae[a] += 1
+    m = len(current_rules)
+    for a in ae:
+        ae[a] = (m - ae[a]) / float(m)
+    sorted_ae = { k : v for k, v in sorted(ae.items(), key = lambda a : a[1], reverse = True) }
+    non_null_ae = { k : v for k, v in sorted_ae.items() if v > 0 }
+    return non_null_ae
+
+# current_rules : Rules that are still to evaluate.
+# possible_attr_values : map of attribute names to array of possible values
+# return 
+# {
+#     "attribute1" : {
+#     "value1" : [ "rule1, ..., rulek" ],
+#     "valuen" : [ "rule2, ..., rulem" ]
+#     },
+#     "attribute2" : { ... }
+# }
+def compute_rules_sorted_by_attribute_values(current_rules, possible_attr_values):
+    result = {}
+    for attr in possible_attr_values:
+        result[attr] = {}
+        values = possible_attr_values[attr]
+        for v in values:
+            result[attr][v] = []
+            for r in current_rules:
+                rule = current_rules[r]
+                if attr in rule and rule[attr] == v:
+                    result[attr][v].append(r)
+    return result
+
+# current_rules : Rules that are still to evaluate.
+# attr : Attributes that must be evaluated.
+# return the score for each selected attributes.
+def compute_attribute_autonomy(current_rules, attr):
+    possible_attr_values = compute_attributes_values(current_rules, attr)
+    rules_attribute_values = compute_rules_sorted_by_attribute_values(current_rules, possible_attr_values)
+
+    for a in possible_attr_values:
+        possible_attr_values[a] = set(possible_attr_values[a])
+
+    ads_matrix = {}
+    for value_rules in rules_attribute_values:
+        # value_rules is an attribute name.
+        ads_matrix[value_rules] = {}
+        for values in rules_attribute_values[value_rules]:
+            # values is an attribute value
+            rules = rules_attribute_values[value_rules][values]
+            # Rules is a set/list of rules.
+            # Compute MaxADS for it, max value from the ADS_list, list of ADS for each attribute != value_rules
+            ads_list = []
+            for a in attr:
+                if a == value_rules:
+                    continue
+                for first_rule in rules:
+                    for second_rule in rules:
+                        if first_rule == second_rule:
+                            continue
+                        # In our case, it is simple. Attribute values set card is 1. So ADS is either 0 or 3.
+                        ads_list.append(0 if current_rules[first_rule][a] == current_rules[second_rule][a] else 3)
+            ads_matrix[value_rules][values] = { "ads" : sum(ads_list), "list" : ads_list, "maxads" : (3 * len(rules) * (len(rules) - 1)) }
+
+    aa = {}
+    for a in attr:
+        aa_for_attrib = 0
+        for values in rules_attribute_values[a]: # Should work.
+            rav = ads_matrix[a][values]
+            found = False
+            if rav["maxads"] == 0:
+                found = True
+                aa_for_attrib += 0 # yeah, it's dumb, but i stick to the algorithm.
+            elif rav["maxads"] != 0:
+                if len(attr) == 2:
+                    for i in rav["list"]:
+                        if i == rav["maxads"]:
+                            found = True
+                            break
+                    if found:
+                        aa_for_attrib += 1
+            if not found: 
+                aa_for_attrib = 1 + ( ((len(attr) - 1) * rav["maxads"]) - rav["ads"] )
+        aa[a] = 0 if aa_for_attrib == 0 else (1.0 / float(aa_for_attrib))
+    sorted_aa = { k : v for k, v in sorted(aa.items(), key = lambda a : a[1], reverse = True) }
+    return sorted_aa
+
+# current_rules : Rules that are still to evaluate.
+# attr_to_compare : array with names of attributes for compare.
+# return the name of the selected attribute.
+def compute_minimum_value_distribution(current_rules, attr_to_compare):
+    set_of_values = compute_attributes_values(current_rules, attr_to_compare)
+    number_of_values = dict((k, len(v)) for (k, v) in set_of_values.items())
+    # Find the attribute with the least values.
+    sorted_set_of_values = { k : v for k, v in sorted(number_of_values.items(), key = lambda a : a[1]) }
+    value = None
+    selected_attributes = []
+    for v in sorted_set_of_values:
+        if value == None:
+            value = sorted_set_of_values[v]
+            selected_attributes.append(v)
+        elif value != sorted_set_of_values[v]:
+            break
+        else:
+            selected_attributes.append(v)
+    if len(selected_attributes) > 1:
+        print("??? Randomness induced in the distribution key due to concurrence between %s. You'd be advised to check your rules. ???" % selected_attributes)
+    return selected_attributes[randint(0, len(selected_attributes) - 1)] # Yikes, I don't like random.
+
+def create_decision_tree(total_rules, attributes_classes, symbols_value_occurrence):
     # rules = dictionary of rules
     # attributes = all the attributes in the rules with name and types.
     branches = {}
+    decision_tree = {}
+    current_rules = total_rules.copy()
+    current_classes = attributes_classes.copy()
+    first_iteration = True
+    current_attributes = list(attributes_classes.keys())
+
+    ## Example : ae = compute_attributes_effectiveness(current_rules, current_attributes)
+
+    ## Example : aa = compute_attribute_autonomy(current_rules, ["moving", "goingUp", "dying", "attacked"])
+
+    ## Example : mvd = compute_minimum_value_distribution(current_rules, list(ae.keys()))
+
+    # TODO
+    while (not len(branches) == 0) or first_iteration:
+        first_iteration = False
+        present_attributes = compute_attributes_from_rules(current_rules)
+        if len(present_attributes) == 0:
+            break
+
+    return decision_tree
     
 
 def generate_specific(config_filepath, controls, common_symbols, generate_debug):
@@ -70,17 +229,26 @@ def generate_specific(config_filepath, controls, common_symbols, generate_debug)
                 sys.exit(1)
 
     ## Everything is ok. Now, check if we can build a decision tree.
-    ### Complete the rules.
+    ### Complete the rules and the number of possible values for each attributes.
+    symbols_value_occurrence = dict((k["Name"], [ None ]) for k in symbols)
     for event in events:
         for s in symbols_types:
             if not s in events[event]:
                 events[event][s] = None
+            if not events[event][s] in symbols_value_occurrence[s]:
+                symbols_value_occurrence[s].append(events[event][s])
 
+    ## Change the Control type to 'int'.
+    for event in events:
+        for attr in events[event]:
+            if symbols_types[attr] == "Control" and events[event][attr] != None:
+                events[event][attr] = control_id[events[event][attr]]
+    ## Create the symbol->type mapping
+    symbols_class = dict((k, type_to_class[v]) for (k, v) in symbols_types.items())
 
-    pprint(events)
+    decision_tree = create_decision_tree(events, symbols_class, symbols_value_occurrence)
 
-    ### TEMP
-    sys.exit(1)
+    pprint(decision_tree)
 
     # Sequences define a tree. Each leaf is a special movement.
     sequences_tree = {}
