@@ -1,5 +1,6 @@
 #!/bin/python3
 
+import os
 import sys
 import json
 import queue
@@ -9,6 +10,9 @@ from pprint import pprint
 import getopt
 
 type_to_class = { "bool" : bool, "Timer" : bool, "Control" : int }
+
+def sort_counters_dict(dictionary):
+    return { k : v for k, v in sorted(dictionary.items(), key = lambda a : a[1], reverse = True) }
 
 # current_rules : Rules that are still to evaluate.
 # attr : array with names of attribute to evaluate.
@@ -28,24 +32,6 @@ def compute_attributes_from_rules(current_rules):
             if current_rules[c][a] != None:
                 attributes.append(a)
     return set(attributes)
-
-# current_rules : Rules that left.
-# attr : Attributes to inspect.
-# return a map from attributes name to the attribute effectiveness score.
-def compute_attributes_effectiveness(current_rules, attr):
-    # For the sake of simplicity : number of rules = number of class (as in classification)
-    # Warning ! It may not be the case in further developments.
-    ae = dict((k, 0) for k in attr)
-    for r in current_rules:
-        for a in attr:
-            if current_rules[r][a] == None:
-                ae[a] += 1
-    m = len(current_rules)
-    for a in ae:
-        ae[a] = (m - ae[a]) / float(m)
-    sorted_ae = { k : v for k, v in sorted(ae.items(), key = lambda a : a[1], reverse = True) }
-#    non_null_ae = { k : v for k, v in sorted_ae.items() if v > 0 }
-    return sorted_ae
 
 # current_rules : Rules that are still to evaluate.
 # possible_attr_values : map of attribute names to array of possible values
@@ -70,84 +56,8 @@ def compute_rules_sorted_by_attribute_values(current_rules, possible_attr_values
                     result[attr][v].append(r)
     return result
 
-# current_rules : Rules that are still to evaluate.
-# attr : Attributes that must be evaluated.
-# return the score for each selected attributes.
-def compute_attribute_autonomy(current_rules, attr):
-    possible_attr_values = compute_attributes_values(current_rules, attr)
-    rules_attribute_values = compute_rules_sorted_by_attribute_values(current_rules, possible_attr_values)
-
-    for a in possible_attr_values:
-        possible_attr_values[a] = set(possible_attr_values[a])
-
-    ads_matrix = {}
-    for value_rules in rules_attribute_values:
-        # value_rules is an attribute name.
-        ads_matrix[value_rules] = {}
-        for values in rules_attribute_values[value_rules]:
-            # values is an attribute value
-            rules = rules_attribute_values[value_rules][values]
-            # Rules is a set/list of rules.
-            # Compute MaxADS for it, max value from the ADS_list, list of ADS for each attribute != value_rules
-            ads_list = []
-            for a in attr:
-                if a == value_rules:
-                    continue
-                for first_rule in rules:
-                    for second_rule in rules:
-                        if first_rule == second_rule:
-                            continue
-                        # In our case, it is simple. Attribute values set card is 1. So ADS is either 0 or 3.
-                        ads_list.append(0 if current_rules[first_rule][a] == current_rules[second_rule][a] else 3)
-            ads_matrix[value_rules][values] = { "ads" : sum(ads_list), "list" : ads_list, "maxads" : (3 * len(rules) * (len(rules) - 1)) }
-
-    aa = {}
-    for a in attr:
-        aa_for_attrib = 0
-        for values in rules_attribute_values[a]: # Should work.
-            rav = ads_matrix[a][values]
-            found = False
-            if rav["maxads"] == 0:
-                found = True
-                aa_for_attrib += 0 # yeah, it's dumb, but i stick to the algorithm.
-            elif rav["maxads"] != 0:
-                if len(attr) == 2:
-                    for i in rav["list"]:
-                        if i == rav["maxads"]:
-                            found = True
-                            break
-                    if found:
-                        aa_for_attrib += 1
-            if not found: 
-                aa_for_attrib = 1 + ( ((len(attr) - 1) * rav["maxads"]) - rav["ads"] )
-        aa[a] = 0 if aa_for_attrib == 0 else (1.0 / float(aa_for_attrib))
-    sorted_aa = { k : v for k, v in sorted(aa.items(), key = lambda a : a[1], reverse = True) }
-    return sorted_aa
-
-# current_rules : Rules that are still to evaluate.
-# attr_to_compare : array with names of attributes for compare.
-# return the name of the selected attribute.
-def compute_minimum_value_distribution(current_rules, attr_to_compare):
-    set_of_values = compute_attributes_values(current_rules, attr_to_compare)
-    number_of_values = dict((k, len(v)) for (k, v) in set_of_values.items())
-    # Find the attribute with the least values.
-    sorted_set_of_values = { k : v for k, v in sorted(number_of_values.items(), key = lambda a : a[1]) }
-    value = None
-    selected_attributes = []
-    for v in sorted_set_of_values:
-        if value == None:
-            value = sorted_set_of_values[v]
-            selected_attributes.append(v)
-        elif value != sorted_set_of_values[v]:
-            break
-        else:
-            selected_attributes.append(v)
-    if len(selected_attributes) > 1:
-        print("??? Randomness induced in the distribution key due to concurrence between %s. You'd be advised to check your rules. ???" % selected_attributes)
-    return selected_attributes[randint(0, len(selected_attributes) - 1)] # Yikes, I don't like random.
-
+# Retrieve rules from attributes.
 def retrieve_rules(current_rules, attributes_values):
-    print("## Retrieve rules for attributes values %s" % attributes_values)
     result = {}
     for rule in current_rules:
         condition = current_rules[rule]
@@ -155,14 +65,15 @@ def retrieve_rules(current_rules, attributes_values):
         for a in attributes_values:
             attribute_name = a["Attribute"]
             attribute_value = a["Value"]
+            if not attribute_name in condition:
+                compatible = False
+                break
             stored_value = condition[attribute_name]
             if stored_value != attribute_value:
                 compatible = False
                 break
         if compatible:
             result[rule] = current_rules[rule]
-    pprint(result)
-    print("## --------------------------------")
     return result
 
 # The input must be sorted.
@@ -179,171 +90,151 @@ def compute_highest(computed_values):
             break
     return candidates_attributes
 
-def create_decision_tree(total_rules, symbols_value_occurrence, config_name, is_debug):
-    print("## Symbols Value Occurrence")
-    pprint(symbols_value_occurrence)
+def is_in_history(attr, history):
+    for h in history:
+        if h["Attribute"] == attr:
+            return True
+    return False
+
+# Return the symbols and their values from the current ruleset.
+def retrieve_symbols(current_rules, history):
+    symbols = {}
+    for c in current_rules:
+        for a in current_rules[c]:
+            if is_in_history(a, history):
+                continue
+            if not a in symbols:
+                symbols[a] = []
+                symbols[a].append(None)
+            if not current_rules[c][a] in symbols[a]:
+                symbols[a].append(current_rules[c][a])
+    return symbols
+
+######################## CREATE DECISION TREE ################################
+def create_decision_tree(total_rules, config_name, is_debug):
+    print("## Rule set")
+    pprint(total_rules)
     # rules = dictionary of rules
     # attributes = all the attributes in the rules with name and types.
     branches = queue.Queue()
     current_branch = None
-    decision_tree = {}
+    decision_tree = { "History" : [] }
     # Decision_tree structure with be:
     # {
     #    "Attribute" : "name_of_attribute",
-    #    "History" : [ { "Attribute" : "name_of_attribute", "Value" : "value" }, { "Attribute" : "name_of_other_attribute", "Value" : "another_value" }, ... ],
+    #    "History" : [ { "Attribute" : "name_of_attribute", "Value" : "value" },
+    #                  { "Attribute" : "name_of_other_attribute", "Value" : "another_value" }, ... 
+    #                ],
     #    "Values" : {
     #        "Val1" : { ... another branch ... },     <--- Empty at creation. Reference stored in branches
     #        "Val2" : { "Event" : "EventName" }
     #    }
     # }
-    cursor = decision_tree
 
-    current_rules = copy.deepcopy(total_rules)
-    current_attributes = compute_attributes_from_rules(current_rules)
+    branches.put(decision_tree)
+    prune_count = 0
+    while not branches.empty():
+        cursor = branches.get()
+        history = cursor["History"]
+        current_rules = retrieve_rules(total_rules, history)
+        current_symbols_occurrence = retrieve_symbols(current_rules, history)
+        print("# New Iteration %s" % history)
+        print("## Constrained rule set")
+        pprint(current_rules)
+        print("## Constrained symbol set")
+        pprint(current_symbols_occurrence)
 
-    event_treated = []
-
-    while (not cursor == None):
-        print("## Computed attributes are %s" % current_attributes)
-        if len(current_rules) == 1:
-            for s in current_rules:
-                cursor["Event"] = s
-                event_treated.append(s)
-            print("## Only one rule : Leaf %s" % cursor["Event"])
-        elif len(current_attributes) == 0:
-            # no more attributes.
-            print("## No more attributes")
-            print("## History is %s" % cursor["History"])
-            # Retrieve the event/rule/class. Normally, there should only be one.
-            if len(current_rules) != 1:
-                print("!!! Error while building decision tree : More or less than 1 final rule left !!!")
-                pprint(current_rules)
-                print("# --------------------------------")
-                pprint(decision_tree)
-                sys.exit(1)
-            else:
-                print("## Leaf : %s" % current_rules[0])
-                cursor["Event"] = current_rules[0]
-                event_treated.append(current_rules[0])
-        else: # This is where the fun begins ...
-            ae = compute_attributes_effectiveness(current_rules, current_attributes)
-            # Determine if there's more than one attribute.
-            candidates_attributes = compute_highest(ae)
-            print("## Attribute Effectiveness is %s" % ae)
-            print("## Candidates are %s" % candidates_attributes)
-            selected_attribute = None
-            singleton = True # Not a big fan of this, but let's trust the algorithm from the academic paper.
-            if len(candidates_attributes) > 1:
-                # Do all the stuff with AA and MVD
-                print("## Attribute Effectiveness is equals for attributes %s" % candidates_attributes)
-                print("## Let's compute Attribute Autonomy for each")
-                aa = compute_attribute_autonomy(current_rules, candidates_attributes)
-                print("## Attribute Autonomy is %s" % aa)
-                # Compute the number of candidates.
-                candidates_attributes = compute_highest(aa)
-                print("## Candidate attributes %s" % candidates_attributes)
-                if len(candidates_attributes) > 1:
-                    print("## Compute Minimum Value Distribution")
-                    selected_attribute = compute_minimum_value_distribution(current_rules, candidates_attributes)
-                    print("## Selected attribute : %s" % selected_attribute)
-                    # Create a node
-                    cursor["Attribute"] = selected_attribute
-                    cursor["Values"] = {}
-                    cursor["Remaining"] = list(current_attributes.copy())
-                    if not "History" in cursor:
-                        cursor["History"] = []
-                    singleton = False
+        search_attribute = True
+        if len(current_rules) == 1: # Leaf
+            # Not so fast ! What about the attributes ?
+            # Count meaningful attributes.
+            meaningful_attributes = False
+            for s in current_symbols_occurrence:
+                if current_symbols_occurrence[s] != None:
+                    meaningful_attributes = True
+                    break
+            if not meaningful_attributes:
+                cursor["Event"] = list(current_rules.keys())[0]
+                print("## Leaf to '%s'" % cursor["Event"])
+                search_attribute = False
+        elif len(current_rules) == 0: # Leaf to prune.
+            cursor["Prune"] = True
+            print("## Leaf to prune")
+            prune_count += 1
+            search_attribute = False
+        if search_attribute:
+            # Elect the symbols with most occurences.
+            symbol_count = {}
+            for c in current_rules:
+                for a in current_rules[c]:
+                    if is_in_history(a, cursor["History"]):
+                        continue
+                    if not a in symbol_count:
+                        symbol_count[a] = 1
+                    else:
+                        symbol_count[a] += 1
+            sorted_symbol_count = sort_counters_dict(symbol_count)
+            # Get the first one (arbitrary)
+            choosen_attribute = list(sorted_symbol_count.keys())[0] # Should not be empty.
+            # Hence, the cursor is attributed to the choosen_attribute.
+            cursor["Attributes"] = choosen_attribute
+            print("## Selected symbol : %s" % choosen_attribute)
+            # Now, branch.
+            cursor["Values"] = {}
+            for v in current_symbols_occurrence[choosen_attribute]:
+                new_history = copy.deepcopy(cursor["History"])
+                new_history.append({ "Attribute" : choosen_attribute, "Value" : v })
+                new_cursor = { "History" : new_history }
+                cursor["Values"][v] = new_cursor
+                print("### Add branch for attribute '%s' and value '%s'" % (choosen_attribute, v))
+                branches.put(new_cursor)
+    if prune_count > 0:
+        print("!!! %d branches to prune !!!" % prune_count)
+        # Let's do this.
+        prune = queue.Queue()
+        prune.put(decision_tree)
+        while not prune.empty():
+            cursor = prune.get()
+            to_remove = []
+            if "Event" in cursor:
+                continue
+            for v in cursor["Values"]:
+                if "Prune" in cursor["Values"][v]:
+                    to_remove.append(v)
                 else:
-                    selected_attribute = candidates_attributes[0]
-                    print("## Selected attribute is '%s'" % selected_attribute)
-            elif len(candidates_attributes) == 1:
-                selected_attribute = candidates_attributes[0]
-            else:
-                # Should never happen !
-                print("!!! Error while computing decision tree !!!")
-                print("!!! Here is the result so far !!!")
-                pprint(decision_tree)
-                sys.exit(1)
-            if singleton:
-                print("## Time to deal with attribute %s" % selected_attribute)
-                # So, 'cursor' point to where whe sould put the attribute. However, the cursor might not be empty.
-                # History should be there to except at the begining.
-                print("## Remove attribute %s" % selected_attribute)
-                if not selected_attribute in current_attributes:
-                    print("!!! Internal Error. '%s' is not part of existing attributes !!!" % selected_attribute)
-                    pprint(decision_tree)
-                    sys.exit(1)
-                current_attributes.remove(selected_attribute)
-                cursor["Attribute"] = selected_attribute
-                cursor["Values"] = {}
-                if not "History" in cursor:
-                    cursor["History"] = []
-            # So, cursor should be filled with "Attribute" and "History".
-            # Now, we'll extends all of this using "possible" value of the attribute at this stage, replicate
-            # the history and add the attribute=value pair
-            for s in symbols_value_occurrence[selected_attribute]:
-#                if s == None:
-#                    continue
-                new_history = cursor["History"].copy()
-                new_history.append({ "Attribute" : selected_attribute, "Value" : s })
-                new_node = { "History" : new_history, "Remaining" : list(current_attributes.copy()) }
-                cursor["Values"][s] = new_node
-                branches.put(new_node)
-        if not branches.empty():
-            current_rules = {}
-            while(len(current_rules) == 0) and not branches.empty():
-                cursor = branches.get()
-                if cursor == None:
-                    print("!!! Internal error : not null cursor should be stored in branches !!!")
-                    pprint(decision_tree)
-                    sys_exit()
-                # We must select rules with the good history.
-                current_rules = retrieve_rules(total_rules, cursor["History"])
-                current_attributes = set(cursor["Remaining"])
-                if len(current_rules) == 0:
-                    print("## DEAD END - Prune this branch")
-                    cursor["Prune"] = True
-            if branches.empty():
-                print("## NO MORE BRANCH")
-                cursor = None
-        else:
-            cursor = None
+                    prune.put(cursor["Values"][v])
+            for v in to_remove:
+                cursor["Values"].pop(v)
+            if len(cursor["Values"]) == 0:
+                cursor["Prune"] = True
+                # We'll have to reinspect.
+                prune.put(decision_tree) # Not optimal at all.
 
-
-    if is_debug:
+    if is_debug: # Generate the verbose debug JSON
         with open("build/decision_tree_%s.json" % config_name, "w") as out_json:
             file_content = json.dumps(decision_tree, indent=4)
             out_json.write(file_content)
             out_json.write("\n")
             out_json.close()
-        ## Verify in all events have been treated
-        not_in_tree = []
-        for e in total_rules:
-            if not e in event_treated:
-                not_in_tree.append(e)
-        if len(not_in_tree):
-            print("!!! Event not treated : %s !!!" % not_in_tree)
-        node = queue.Queue()
-        node.put(decision_tree)
-        while not node.empty():
-            current = node.get()
-            if "Event" in current:
-                print("### Event %s : %s" % (current["Event"], current["History"]))
-            if "Values" in current:
-                for n in current["Values"]:
-                    node.put(current["Values"][n])
-            elif not "Prune" in current:
-                pprint(current)
 
+    # And now decision tree compression. All those "None" value can be transformed in 'or' statement
+    # fallthrough.
+    # First, remomve history.
+    branches.put(decision_tree)
+    while not branches.empty():
+        cursor = branches.get()
+        if "History" in cursor:
+            cursor.pop("History")
+        if "Values" in cursor:
+            for v in cursor["Values"]:
+                branches.put(cursor["Values"][v])
+
+    if is_debug: # Generate the dot.
         with open("build/decision_tree_%s.dot" % config_name, "w") as out_dot:
-            out_dot.write("digraph debug_fsm {\n")
-            out_dot.write("\tedge [arrowhead=normal, fontsize=6];\n")
-            out_dot.write("\tnode [shape=box, fontsize=8];\n")
-            out_dot.write("}\n")
             out_dot.close()
-
     return decision_tree
 
+######################## CREATE DECISION TREE ################################
 
 def generate_specific(config_filepath, controls, common_symbols, generate_debug):
     control_id = {}
@@ -402,50 +293,40 @@ def generate_specific(config_filepath, controls, common_symbols, generate_debug)
                 print("!!! In event '%s', condition symbol '%s' type mismatch !!!" % (event, condition_symbol))
                 sys.exit(1)
 
-    ## Everything is ok. Now, check if we can build a decision tree.
-    ### Complete the rules and the number of possible values for each attributes.
-    symbols_value_occurrence = dict((k["Name"], [ None ]) for k in symbols)
-    for event in events:
-        for s in symbols_types:
-            if not s in events[event]:
-                events[event][s] = None
-            if not events[event][s] in symbols_value_occurrence[s]:
-                symbols_value_occurrence[s].append(events[event][s])
-
     ## Change the Control type to 'int'.
     for event in events:
         for attr in events[event]:
             if symbols_types[attr] == "Control" and events[event][attr] != None:
                 events[event][attr] = control_id[events[event][attr]]
-    ## Do the same in symbols_value_occurrence
-    for s in symbols_value_occurrence:
-        if symbols_types[s] == "Control":
-            new_values = []
-            for v in symbols_value_occurrence[s]:
-                if v == None:
-                    new_values.append(None)
-                else:
-                    new_values.append(control_id[v])
-            symbols_value_occurrence[s] = new_values
-    new_symbols = {}
-    for s in symbols_value_occurrence:
-        if len(symbols_value_occurrence[s]) > 1:
-            new_symbols[s] = symbols_value_occurrence[s]
-    symbols_value_occurrence = new_symbols
-    ## Remove symbols the doesn't appears in the list from the rules.
+    ## Complete rules with "None".
     for event in events:
-        new_conditions = {}
-        for c in events[event]:
-            if c in symbols_value_occurrence:
-                new_conditions[c] = events[event][c]
-        events[event] = new_conditions
+        for attr in symbols_types:
+            if not attr in events[event]:
+                events[event][attr] = None
 
     ## Create the symbol->type mapping
     symbols_class = dict((k, type_to_class[v]) for (k, v) in symbols_types.items())
 
-    decision_tree = create_decision_tree(events, symbols_value_occurrence, config_name, generate_debug)
+    decision_tree = create_decision_tree(events, config_name, generate_debug)
 
+    print("## Generated Decision Tree")
     pprint(decision_tree)
+    # Find missing events.
+    actual_events = list(events.keys())
+    parkour = queue.Queue()
+    parkour.put(decision_tree)
+    while not parkour.empty():
+        cursor = parkour.get()
+        if "Event" in cursor:
+            actual_events.remove(cursor["Event"])
+        if "Values" in cursor:
+            for v in cursor["Values"]:
+                parkour.put(cursor["Values"][v])
+    if len(actual_events) > 0:
+        print("!!! Missing events in decision tree : %s !!!" % actual_events)
+        sys.exit(1)
+    else:
+        print("## Decision tree manage all the events.")
 
     # Sequences define a tree. Each leaf is a special movement.
     sequences_tree = {}
@@ -751,6 +632,10 @@ def main():
         elif opt == "-s":
             specific_filepaths.append(arg)
         elif opt == "-d":
+            try:
+                os.mkdir("build")
+            except OSError as error:
+                pass
             generate_debug = True
 
     print("Global Filepath = '%s'" % global_filepath)
