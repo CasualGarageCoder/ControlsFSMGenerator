@@ -111,7 +111,9 @@ def retrieve_symbols(current_rules, history):
     return symbols
 
 ######################## CREATE DECISION TREE ################################
-def create_decision_tree(total_rules, config_name, is_debug):
+def create_decision_tree(total_rules, symbols_types, config_name, is_debug):
+    print("## Symbols Types")
+    pprint(symbols_types)
     print("## Rule set")
     pprint(total_rules)
     # rules = dictionary of rules
@@ -251,9 +253,35 @@ def create_decision_tree(total_rules, config_name, is_debug):
             for v in cursor["Values"]:
                 print("#### Insert node %s" % v)
                 branches.put(cursor["Values"][v])
-
+    ## Try to generate code
+    ## The code generator will need a more iterative structure.
     if is_debug: # Generate the dot.
         with open("build/decision_tree_%s.dot" % config_name, "w") as out_dot:
+            # The decision tree has been cleared.
+            node_id = 0
+            out_dot.write("digraph G {\n")
+            # First pass : Node attribution
+            branches.put(decision_tree)
+            while not branches.empty():
+                cursor = branches.get()
+                if "Attributes" in cursor:
+                    out_dot.write("\tnode_%d [ label = \"%s\", shape = diamond ]\n" % (node_id, cursor["Attributes"]))
+                    cursor["Node"] = "node_%d" % node_id
+                    for v in cursor["Values"]:
+                        branches.put(cursor["Values"][v])
+                if "Event" in cursor:
+                    out_dot.write("\tnode_%d [ label = \"%s\", shape = box ]\n" % (node_id, cursor["Event"]))
+                    cursor["Node"] = "node_%d" % node_id
+                node_id += 1
+            # Second pass : Edge building
+            branches.put(decision_tree)
+            while not branches.empty():
+                cursor = branches.get()
+                if "Attributes" in cursor:
+                    for v in cursor["Values"]:
+                        out_dot.write("%s -> %s [ label = \"%s\"]\n" % (cursor["Node"], cursor["Values"][v]["Node"], v))
+                        branches.put(cursor["Values"][v])
+            out_dot.write("}\n")
             out_dot.close()
     return decision_tree
 
@@ -330,7 +358,7 @@ def generate_specific(config_filepath, controls, common_symbols, generate_debug)
     ## Create the symbol->type mapping
     symbols_class = dict((k, type_to_class[v]) for (k, v) in symbols_types.items())
 
-    decision_tree = create_decision_tree(events, config_name, generate_debug)
+    decision_tree = create_decision_tree(events, symbols_class, config_name, generate_debug)
 
     print("## Generated Decision Tree")
     pprint(decision_tree)
