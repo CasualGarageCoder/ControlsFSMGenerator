@@ -219,7 +219,8 @@ def create_decision_tree(total_rules, config_name, is_debug):
 
     # And now decision tree compression. All those "None" value can be transformed in 'or' statement
     # fallthrough.
-    # First, remomve history.
+    ## First, remove history.
+    print("### Remove History")
     branches.put(decision_tree)
     while not branches.empty():
         cursor = branches.get()
@@ -227,6 +228,28 @@ def create_decision_tree(total_rules, config_name, is_debug):
             cursor.pop("History")
         if "Values" in cursor:
             for v in cursor["Values"]:
+                branches.put(cursor["Values"][v])
+    ## Second, shorten None branching.
+    print("### Remove 'None' thread")
+    branches.put(decision_tree)
+    while not branches.empty():
+        cursor = branches.get()
+        if "Values" in cursor:
+            print("### %s (%d) (%s)" % (cursor["Values"].keys(), len(cursor["Values"]), None in cursor["Values"]))
+        while "Values" in cursor and len(cursor["Values"]) == 1 and None in cursor["Values"]:
+            print("!! Thread removal")
+            # We can get rid of the intermediate.
+            next_entry = cursor["Values"][None]
+            print(next_entry)
+            if "Event" in next_entry:
+                cursor.clear()
+                cursor["Event"] = next_entry["Event"]
+            else:
+                cursor["Attributes"] = next_entry["Attributes"]
+                cursor["Values"] = next_entry["Values"]
+        if "Values" in cursor:
+            for v in cursor["Values"]:
+                print("#### Insert node %s" % v)
                 branches.put(cursor["Values"][v])
 
     if is_debug: # Generate the dot.
