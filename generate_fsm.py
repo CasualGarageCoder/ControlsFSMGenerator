@@ -135,6 +135,7 @@ def create_decision_tree(total_rules, symbols_types, config_name, is_debug):
 
     branches.put(decision_tree)
     prune_count = 0
+    event_count = 0
     while not branches.empty():
         cursor = branches.get()
         history = cursor["History"]
@@ -151,14 +152,19 @@ def create_decision_tree(total_rules, symbols_types, config_name, is_debug):
             # Not so fast ! What about the attributes ?
             # Count meaningful attributes.
             meaningful_attributes = False
+            name = None
             for s in current_symbols_occurrence:
-                if current_symbols_occurrence[s] != None:
+                if len(current_symbols_occurrence[s]) > 1:
                     meaningful_attributes = True
+                    name = s
                     break
             if not meaningful_attributes:
                 cursor["Event"] = list(current_rules.keys())[0]
                 print("## Leaf to '%s'" % cursor["Event"])
+                event_count += 1
                 search_attribute = False
+            else:
+                print("## Still meaningful attribute '%s'. No leaf." % name)
         elif len(current_rules) == 0: # Leaf to prune.
             cursor["Prune"] = True
             print("## Leaf to prune")
@@ -169,15 +175,36 @@ def create_decision_tree(total_rules, symbols_types, config_name, is_debug):
             symbol_count = {}
             for c in current_rules:
                 for a in current_rules[c]:
-                    if is_in_history(a, cursor["History"]):
+                    if is_in_history(a, cursor["History"]) or current_rules[c][a] == None:
                         continue
                     if not a in symbol_count:
                         symbol_count[a] = 1
                     else:
                         symbol_count[a] += 1
+            if len(symbol_count) == 0:
+                cursor["Prune"] = True
+                prune_count += 1
+                continue
             sorted_symbol_count = sort_counters_dict(symbol_count)
-            # Get the first one (arbitrary)
-            choosen_attribute = list(sorted_symbol_count.keys())[0] # Should not be empty.
+            candidates = compute_highest(sorted_symbol_count)
+            if len(candidates) > 1:
+                # Let's determine, for candidates, the number of different values.
+                value_per_candidate = {}
+                for candidate in candidates:
+                    value_per_candidate[candidate] = set()
+                for c in current_rules:
+                    for a in current_rules[c]:
+                        if a in candidates and current_rules[c][a] != None:
+                            value_per_candidate[a].add(current_rules[c][a])
+                pprint(value_per_candidate)
+                card_per_candidate = dict({ (k, len(v)) for (k, v) in value_per_candidate.items() })
+                sorted_card = sort_counters_dict(card_per_candidate) 
+                print("## Cardinality per candidate")
+                print(sorted_card)
+                choosen_attribute = list(sorted_card.keys())[len(sorted_card) - 1] # Should not be empty.
+            else:
+                # Get the first (and only) one
+                choosen_attribute = list(sorted_symbol_count.keys())[0] # Should not be empty.
             # Hence, the cursor is attributed to the choosen_attribute.
             cursor["Attributes"] = choosen_attribute
             print("## Selected symbol : %s" % choosen_attribute)
@@ -190,9 +217,14 @@ def create_decision_tree(total_rules, symbols_types, config_name, is_debug):
                 cursor["Values"][v] = new_cursor
                 print("### Add branch for attribute '%s' and value '%s'" % (choosen_attribute, v))
                 branches.put(new_cursor)
+    if event_count == 0:
+        print("!!! Internal Error : No event matched !!!")
+        pprint(decision_tree)
+        sys.exit(1)
     if prune_count > 0:
         print("!!! %d branches to prune !!!" % prune_count)
         # Let's do this.
+        pprint(decision_tree)
         prune = queue.Queue()
         prune.put(decision_tree)
         while not prune.empty():
