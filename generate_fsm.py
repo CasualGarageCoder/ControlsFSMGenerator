@@ -453,7 +453,7 @@ def create_decision_tree(total_rules, symbols_types, config_name, is_debug):
 
     return decision_tree
 
-######################## CREATE DECISION TREE ################################
+######################## END OF CREATE DECISION TREE ############################
 
 def generate_specific(config_filepath, controls, common_symbols, generate_debug):
     control_id = {}
@@ -525,27 +525,6 @@ def generate_specific(config_filepath, controls, common_symbols, generate_debug)
 
     ## Create the symbol->type mapping
     symbols_class = dict((k, type_to_class[v]) for (k, v) in symbols_types.items())
-
-    decision_tree = create_decision_tree(events, symbols_class, config_name, generate_debug)
-
-    print("## Generated Decision Tree")
-    pprint(decision_tree)
-    # Find missing events.
-    actual_events = list(events.keys())
-    parkour = queue.Queue()
-    parkour.put(decision_tree)
-    while not parkour.empty():
-        cursor = parkour.get()
-        if "Event" in cursor:
-            actual_events.remove(cursor["Event"])
-        if "Values" in cursor:
-            for v in cursor["Values"]:
-                parkour.put(cursor["Values"][v])
-    if len(actual_events) > 0:
-        print("!!! Missing events in decision tree : %s !!!" % actual_events)
-        sys.exit(1)
-    else:
-        print("## Decision tree manage all the events.")
 
     # Sequences define a tree. Each leaf is a special movement.
     sequences_tree = {}
@@ -794,11 +773,19 @@ def generate_specific(config_filepath, controls, common_symbols, generate_debug)
     with open("build/%sControls.gd" % config_name, "w") as specific_constants_singleton:
         specific_constants_singleton.write("# Constants for character '%s' controls\nextends Node\n\n" % config_name)
         sequences_list = sequences["List"]
+        uconfig_name = config_name.upper()
         for s in range(len(sequences_list)):
-            specific_constants_singleton.write("const SEQUENCE_%s_%s : int = %d\n" % (config_name.upper(), sequences_list[s]["Name"].upper(), s))
-            specific_constants_singleton.write("const SEQUENCE_%s_%s_DURATION_TIMER : int = %d\n" % (config_name.upper(), sequences_list[s]["Name"].upper(), (s * 2)))
-            specific_constants_singleton.write("const SEQUENCE_%s_%s_COOLDOWN_TIMER : int = %d\n" % (config_name.upper(), sequences_list[s]["Name"].upper(), ((s * 2) + 1)))
-        specific_constants_singleton.write("const SEQUENCE_%s_SEQUENCE_TIMER : int = %d\n" % (config_name.upper(), len(sequences_list) * 2))
+            useq_name = sequences_list[s]["Name"].upper()
+            specific_constants_singleton.write("const SEQUENCE_%s_%s : int = %d\n" % (uconfig_name, useq_name, s))
+            specific_constants_singleton.write("const SEQUENCE_%s_%s_DURATION_TIMER : int = %d\n" % (uconfig_name, useq_name, (s * 2)))
+            specific_constants_singleton.write("const SEQUENCE_%s_%s_COOLDOWN_TIMER : int = %d\n" % (uconfig_name, useq_name, ((s * 2) + 1)))
+        specific_constants_singleton.write("const SEQUENCE_%s_SEQUENCE_TIMER : int = %d\n" % (uconfig_name, len(sequences_list) * 2))
+        count = len(sequences_list) * 2 + 1
+        ## Add timer symbols
+        for s in symbols:
+            if s["Type"] == "Timer":
+                specific_constants_singleton.write("const SYMB_%s_%s_TIMER : int = %d\n" % (uconfig_name, s["Name"].upper(), count))
+                count += 1
 
     if generate_debug:
         with open("build/%s_debug.dot" % config_name, "w") as debug_file:
@@ -820,11 +807,33 @@ def generate_specific(config_filepath, controls, common_symbols, generate_debug)
             debug_file.write("}\n")
             debug_file.close()
 
+    # And finally, generate decision tree to generate the specific script.
+    # We got all we need. The symbols, the triggers, the timers.
+    decision_tree = create_decision_tree(events, symbols_class, config_name, generate_debug)
+    print("## Generated Decision Tree")
+
+    # Find missing events.
+    actual_events = list(events.keys())
+    parkour = queue.Queue()
+    parkour.put(decision_tree)
+    while not parkour.empty():
+        cursor = parkour.get()
+        if "Event" in cursor:
+            actual_events.remove(cursor["Event"])
+        if "Values" in cursor:
+            for v in cursor["Values"]:
+                parkour.put(cursor["Values"][v])
+    if len(actual_events) > 0:
+        print("!!! Missing events in decision tree : %s !!!" % actual_events)
+        sys.exit(1)
+    else:
+        print("## Decision tree manage all the events.")
+
 def generate_main_constants(controls, common_symbols):
     with open("build/GlobalControls.gd", "w") as global_constants_singleton:
         global_constants_singleton.write("# Global constants for player controls identification\nextends Node\n\n")
         for c in range(len(controls)):
-            global_constants_singleton.write("const PLAYER_CONTROL_%s : int = %d\n" % (controls[c], c))
+            global_constants_singleton.write("const PLAYER_CONTROL_%s : int = %d\n" % (controls[c].upper(), c))
         global_constants_singleton.write("const PLAYER_CONTROLS_DESCRIPTION : Array = [ ")
         description = ",".join(map(lambda s : "\"%s\"" % s.upper(), controls))
         global_constants_singleton.write(description)

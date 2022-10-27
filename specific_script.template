@@ -1,0 +1,67 @@
+extends MainController
+
+# Except timer
+var {symbol}_v : {type}
+
+
+func _ready():
+        # Resize the timer_timeout and timer_expire arrays to fit with new timer symbols.
+        pass
+
+func {symbol}() -> {type}:
+        return {symbol}_v
+
+func {timer_symbol}() -> bool:
+        var identifier : int = SYMB_{uconf_name}_{utimer_symbol}_TIMER
+        return timer_expire[identifier] > 0 && current_time < timer_expire[identifier]
+
+func invoke_decision_tree() -> void:
+        { decision_tree_generated_code_goes_here }
+
+func delegate_process() -> void:
+        # For each symbols that needs to be evaluated on each frame.
+        var invoke = false
+        var new_{symbol} = evaluate_{symbol}()
+        invoke |= new_{symbol} != {symbol}_v
+        {symbol}_v = new_{symbol}
+
+        if invoke:
+                invoke_decision_tree()
+
+func process_move(control : int, pressed : bool) -> void:
+        # For each control that triggers
+        var invoke = false
+        if {triggering_control} == control and pressed:
+                var temp = evaluate_{symbol}()
+                # For timers
+                invoke |= temp
+                # For others
+                invoke |= temp == {symbol}_v
+                {symbol}_v = temp
+
+        # At the end
+        if invoke:
+                invoke_decision_tree()
+
+func on_timer_expire(timer : int) -> void:
+        var invoke = false
+        # For each timer symbol
+        invoke |= {timer_symbol} == timer
+
+        if invoke:
+                invoke_decision_tree()
+
+        on_timer_delegate(timer)
+
+# Extra behavior for timer expiration.
+func on_timer_delegate(timer : int) -> void:
+        pass # End user responsability
+
+# Evaluate the symbol and return its value (without storing it).
+# This works for timer too.
+func evaluate_{symbol}() -> {type}:
+        pass # End user responsability
+
+# Trigger the event
+func trigger(event : int):
+        pass # End user responsability.

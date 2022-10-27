@@ -1,3 +1,4 @@
+class_name MainController
 extends Node
 
 export(String) var descriptor_filename : String
@@ -133,6 +134,14 @@ func _process(delta : float):
 			if i == (timer_expire.size() - 1):
 				var next_state : int = states[current_state].timeout_route
 				current_state = next_state
+        delegate_process()
+
+# Trigger a timer
+func trigger_timer(timer : int) -> bool:
+        if current_time < timer_expire[timer]:
+                return false
+        timer_expire[timer] = current_timer + timer_timeout[timer]
+        return true
 
 ## "Virtual Methods"
 
@@ -162,3 +171,7 @@ func filter_control(control : int, _pressed : int) -> int:
 #   other kind of behavior modifier.
 func can_move() -> bool:
 	return true
+
+# Allow performing extra processing.
+func delegate_process() -> void:
+        pass
