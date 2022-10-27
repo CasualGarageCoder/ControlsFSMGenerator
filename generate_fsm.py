@@ -110,6 +110,37 @@ def retrieve_symbols(current_rules, history):
                 symbols[a].append(current_rules[c][a])
     return symbols
 
+# Write in a file with identation.
+def write_indent(fl, indent, text):
+    for i in range(indent * 4):
+        fl.write(" ")
+    fl.write(text)
+    fl.write("\n")
+
+# Transform stack to a more readable form
+def produce_readable_stack(stack):
+    result = []
+    for s in stack:
+        node = s["Node"]
+        statement_id = s["Statement"]
+        value_id = s["Value"]
+        description = None
+        if statement_id == len(node):
+            description = "To Discard"
+        else:
+            statement = node[statement_id]
+            if "Event" in statement:
+                description = "Event = %s" % statement["Event"]
+            else:
+                if value_id >= len(statement["Values"]):
+                    description = "To Discard"
+                else:
+                    value = list(statement["Values"].keys())[value_id]
+                    description = "%s = %s" % (statement["Attributes"], value)
+        final_description = "%s (s=%d, v=%d)" % (description, statement_id, value_id)
+        result.append(final_description)
+    return result
+
 ######################## CREATE DECISION TREE ################################
 def create_decision_tree(total_rules, symbols_types, config_name, is_debug):
     print("## Symbols Types")
@@ -121,9 +152,9 @@ def create_decision_tree(total_rules, symbols_types, config_name, is_debug):
     branches = queue.Queue()
     current_branch = None
     decision_tree = { "History" : [] }
-    # Decision_tree structure with be:
+    # Decision_tree structure will be:
     # {
-    #    "Attribute" : "name_of_attribute",
+    #    "Attributes" : "name_of_attribute",
     #    "History" : [ { "Attribute" : "name_of_attribute", "Value" : "value" },
     #                  { "Attribute" : "name_of_other_attribute", "Value" : "another_value" }, ... 
     #                ],
@@ -285,8 +316,7 @@ def create_decision_tree(total_rules, symbols_types, config_name, is_debug):
             for v in cursor["Values"]:
                 print("#### Insert node %s" % v)
                 branches.put(cursor["Values"][v])
-    ## Try to generate code
-    ## The code generator will need a more iterative structure.
+
     if is_debug: # Generate the dot.
         with open("build/decision_tree_%s.dot" % config_name, "w") as out_dot:
             # The decision tree has been cleared.
@@ -315,6 +345,112 @@ def create_decision_tree(total_rules, symbols_types, config_name, is_debug):
                         branches.put(cursor["Values"][v])
             out_dot.write("}\n")
             out_dot.close()
+
+    # Transform the decision tree to flatten the statements.
+    # Decision_tree structure will be transformed as follow:
+    # [
+    #   {
+    #    "Attributes" : "name_of_attribute",
+    #    "Values" : {
+    #        "Val1" : [ { ... another branch ... }, { ... concurrent branch ... } ],
+    #        "Val2" : [ { "Event" : "EventName" } ]
+    #    }
+    #  },
+    #  { "Attributes" : "other" ... }
+    # ]
+    flat_tree = []
+    decision_tree["Flat"] = flat_tree
+    branches.put(decision_tree)
+    while not branches.empty():
+        cursor = branches.get()
+        # New node from the old decision tree structure.
+        ## First, replicate it.
+        if "Event" in cursor:
+            new_decision = { "Event" : cursor["Event"] }
+            cursor["Flat"].append(new_decision)
+        elif "Attributes" in cursor:
+            new_decision = { "Attributes" : cursor["Attributes"], "Values" : {} }
+            # Time to sort values in case of booleans. True first, then false.
+            for v in cursor["Values"]:
+                if v == None:
+                    none_cursor = cursor["Values"][None]
+                    branches.put(none_cursor)
+                    none_cursor["Flat"] = cursor["Flat"]
+                    continue
+                new_decision["Values"][v] = []
+                cursor["Values"][v]["Flat"] = new_decision["Values"][v]
+                branches.put(cursor["Values"][v])
+            if symbols_types[cursor["Attributes"]] == bool and len(new_decision["Values"]) == 2:
+                print("## Sorting boolean values.")
+                print("## %s" % new_decision["Values"].keys())
+                falseValue = new_decision["Values"][False]
+                new_decision["Values"].pop(False)
+                new_decision["Values"][False] = falseValue
+            cursor["Flat"].append(new_decision)
+        else:
+            print("!!! Internal error. Such a node should not exists !!!")
+    print("## Flat Tree :")
+    pprint(flat_tree)
+
+    with open("build/decision_tree_%s.gd" % config_name, "w") as out_gd:
+        ## Try to generate code
+        ## Inside the stack, we'll position a decision tree node and a counter.
+        stack = []
+        stack.append({ "Node" : flat_tree, "Statement" : 0, "Value" : 0 })
+        specific_identifier = config_name.upper()
+        while len(stack) > 0:
+            print("## --------------------------")
+            print(produce_readable_stack(stack))
+            print("### -------------------------")
+            cursor = stack.pop()
+            node = cursor["Node"]
+            statement_id = cursor["Statement"]
+            value = cursor["Value"]
+            if statement_id == len(node):
+                if len(stack) == 0:
+                    print("## Break because end of main statement list")
+                    break
+                print("## Discard because of end of statements reached")
+                cursor = stack.pop()
+                cursor["Value"] += 1
+                stack.append(cursor)
+                continue
+            statement = node[statement_id]
+            if "Event" in statement:
+                write_indent(out_gd, len(stack), "trigger(%s)" % statement["Event"])
+                cursor = stack.pop()
+                cursor["Value"] += 1
+                stack.append(cursor)
+                # It should be the only statement in the node. Rewind.
+            elif "Attributes" in statement:
+                if value == len(statement["Values"]):
+                    cursor["Value"] = 0
+                    cursor["Statement"] += 1
+                    stack.append(cursor)
+                    print("### Discard because of end of values reached")
+                    continue
+                if value == 0:
+                    # So, we begin with a new attributes.
+                    if symbols_types[statement["Attributes"]] == bool: # Boolean
+                        negate = "!" if list(statement["Values"].keys())[0] == False else ""
+                        write_indent(out_gd, len(stack), "if %s%s:" % (negate, statement["Attributes"]))
+                    else:
+                        value_name = list(statement["Values"].keys())[value]
+                        write_indent(out_gd, len(stack), "if %s == %s:" % (statement["Attributes"], value_name))
+                else:
+                    if symbols_types[statement["Attributes"]] == bool: # Boolean
+                        write_indent(out_gd, len(stack), "else:")
+                    else:
+                        value_name = list(statement["Values"].keys())[value]
+                        write_indent(out_gd, len(stack), "elif %s == %s:" % (statement["Attributes"], value_name))
+                # We reinject the cursor as-is. It will be modified when going up.
+                stack.append(cursor)
+                # Don't forget to append the next statement/value
+                next_statement = { "Node" : statement["Values"][list(statement["Values"].keys())[value]], "Statement" : 0, "Value" : 0 }
+                stack.append(next_statement)
+            
+        out_gd.close()
+
     return decision_tree
 
 ######################## CREATE DECISION TREE ################################
