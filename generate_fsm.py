@@ -112,8 +112,8 @@ def retrieve_symbols(current_rules, history):
 
 # Write in a file with identation.
 def write_indent(fl, indent, text):
-    for i in range(indent * 4):
-        fl.write(" ")
+    for i in range(indent):
+        fl.write("\t")
     fl.write(text)
     fl.write("\n")
 
@@ -417,7 +417,8 @@ def create_decision_tree(total_rules, symbols_types, config_name, is_debug):
                 continue
             statement = node[statement_id]
             if "Event" in statement:
-                write_indent(out_gd, len(stack), "trigger(%s)" % statement["Event"])
+                identifier = "EVENT_%s_%s" % (config_name.upper(), statement["Event"].upper())
+                write_indent(out_gd, len(stack), "trigger(%s)" % identifier)
                 cursor = stack.pop()
                 cursor["Value"] += 1
                 stack.append(cursor)
@@ -433,16 +434,16 @@ def create_decision_tree(total_rules, symbols_types, config_name, is_debug):
                     # So, we begin with a new attributes.
                     if symbols_types[statement["Attributes"]] == bool: # Boolean
                         negate = "!" if list(statement["Values"].keys())[0] == False else ""
-                        write_indent(out_gd, len(stack), "if %s%s:" % (negate, statement["Attributes"]))
+                        write_indent(out_gd, len(stack), "if %s%s():" % (negate, statement["Attributes"]))
                     else:
                         value_name = list(statement["Values"].keys())[value]
-                        write_indent(out_gd, len(stack), "if %s == %s:" % (statement["Attributes"], value_name))
+                        write_indent(out_gd, len(stack), "if %s() == %s:" % (statement["Attributes"], value_name))
                 else:
                     if symbols_types[statement["Attributes"]] == bool: # Boolean
                         write_indent(out_gd, len(stack), "else:")
                     else:
                         value_name = list(statement["Values"].keys())[value]
-                        write_indent(out_gd, len(stack), "elif %s == %s:" % (statement["Attributes"], value_name))
+                        write_indent(out_gd, len(stack), "elif %s() == %s:" % (statement["Attributes"], value_name))
                 # We reinject the cursor as-is. It will be modified when going up.
                 stack.append(cursor)
                 # Don't forget to append the next statement/value
@@ -466,6 +467,8 @@ def generate_specific(config_filepath, controls, common_symbols, generate_debug)
         sequence_timeout = 0
         local_symbols = []
         events = {}
+        control_triggered_symbols = {}
+        process_triggered_symbols = []
         # Command line arguments are controls.
         with open(config_filepath, "r") as config_file:
             configuration = json.load(config_file)
@@ -476,6 +479,8 @@ def generate_specific(config_filepath, controls, common_symbols, generate_debug)
             sequence_timeout = configuration["Rules"]["Sequences"]["Timeout"]
             local_symbols = configuration["Rules"]["Symbols"]
             events = configuration["Rules"]["Events"]
+            process_triggered_symbols = configuration["Rules"]["Frame"]
+            control_triggered_symbols = configuration["Rules"]["Trigger"]
 
         # Determine events condition tree
 
@@ -525,6 +530,8 @@ def generate_specific(config_filepath, controls, common_symbols, generate_debug)
 
     ## Create the symbol->type mapping
     symbols_class = dict((k, type_to_class[v]) for (k, v) in symbols_types.items())
+
+    ## Finite State Machine
 
     # Sequences define a tree. Each leaf is a special movement.
     sequences_tree = {}
@@ -786,6 +793,17 @@ def generate_specific(config_filepath, controls, common_symbols, generate_debug)
             if s["Type"] == "Timer":
                 specific_constants_singleton.write("const SYMB_%s_%s_TIMER : int = %d\n" % (uconfig_name, s["Name"].upper(), count))
                 count += 1
+        # Add events
+        count = 0
+        event_descriptor = []
+        for e in events:
+            event_name = e.upper()
+            identifier = "EVENT_%s_%s" % (uconfig_name, event_name)
+            event_descriptor.append(e)
+            specific_constants_singleton.write("const %s : int = %d\n" % (identifier, count))
+            count += 1
+        specific_constants_singleton.write("const EVENT_DESCRIPTOR_%s : Array = %s" % (uconfig_name, event_descriptor))
+
 
     if generate_debug:
         with open("build/%s_debug.dot" % config_name, "w") as debug_file:
@@ -829,6 +847,90 @@ def generate_specific(config_filepath, controls, common_symbols, generate_debug)
     else:
         print("## Decision tree manage all the events.")
 
+    # And now, we are ready to generate the specific script, the last thing we'll do here.
+    script_path = "build/%sController.gd" % config_name
+    print("## Print specific controller script in : %s" % script_path)
+    uconf_name = config_name.upper()
+    with open(script_path, "w") as specific_script:
+        specific_script.write("extends MainController\n\n")
+        # All symbols
+        for s in symbols:
+            if not s["Type"] == "Timer":
+                specific_script.write("var %s_v : %s\n" % (s["Name"], symbols_class[s["Name"]].__name__))
+        specific_script.write("\nfunc _ready():")
+        # Add local timers
+        for s in symbols:
+            if s["Type"] == "Timer":
+                specific_script.write("\ttimer_expire.append(-1)\n\ttime_timeout.append(%d)\n" % s["Default"])
+        specific_script.write("\n")
+        # Symbol accessors
+        for s in symbols:
+            if s["Type"] == "Timer":
+                specific_script.write("func %s() -> bool:\n" % s["Name"])
+                specific_script.write("\tvar identifier : int = SYMB_%s_%s_TIMER\n" % (uconf_name, s["Name"].upper()))
+                specific_script.write("\treturn timer_expire[identifier] > 0 && current_time < timer_expire[identifier]\n\n")
+            else:
+                specific_script.write("func %s() -> %s:\n\treturn %s_v\n\n" % (s["Name"], symbols_class[s["Name"]].__name__, s["Name"]))
+        # Decision tree !
+        specific_script.write("func invoke_decision_tree() -> void:\n")
+        decision_tree_path = "build/decision_tree_%s.gd" % config_name
+        with open(decision_tree_path, "r") as generated_dt:
+            lines = generated_dt.readlines()
+            for line in lines:
+                specific_script.write("\t%s" % line)
+            generated_dt.close()
+        # Delegate process : Manage per-frame trigger
+        specific_script.write("\nfunc delegate_process() -> void:\n\tvar invoke : bool = false\n")
+        for s in process_triggered_symbols:
+            if symbols_types[s] == "Timer":
+                specific_script_write("\tinvoke = invoke || evaluate_%s()\n" % s)
+            else:
+                specific_script.write("\tvar new_%s : %s = evaluate_%s()\n\tinvoke = invoke || (new_%s != %s_v)\n\t%s_v = new_%s\n" % (s, symbols_class[s].__name__, s, s, s, s, s))
+        specific_script.write("\tif invoke:\n\t\tinvoke_decision_tree()\n\n")
+        # Delegate process : Manage on control trigger.
+        specific_script.write("func process_move(control : int, pressed : bool) -> void:\n\tvar invoke : bool = false\n")
+        for t in control_triggered_symbols:
+            specific_script.write("\tif control == PLAYER_CONTROL_%s:\n" % t.upper())
+            press_list = control_triggered_symbols[t]["onPress"] if "onPress" in control_triggered_symbols[t] else []
+            if len(press_list) > 0:
+                specific_script.write("\t\tif pressed:\n")
+                for s in press_list:
+                    if symbols_types[s] == "Timer":
+                        specific_script.write("\t\t\tinvoke = invoke || evaluate_%s()\n" % s)
+                    else:
+                        specific_script.write("\t\t\tvar temp_%s : %s = evaluate_%s()\n" % (s, symbols_class[s].__name__, s))
+                        specific_script.write("\t\t\tinvoke = invoke || (%s_v != temp_%s)\n" % (s, s))
+                        specific_script.write("\t\t\t%s_v = temp_%s\n" % (s, s))
+            unpressed_list = control_triggered_symbols[t]["onRelease"] if "onRelease" in control_triggered_symbols[t] else []
+            if len(unpressed_list) > 0:
+                if len(press_list) > 0:
+                    specific_script.write("\t\telse:\n")
+                else:
+                    specific_script.write("\t\tif not pressed:\n")
+                for s in unpressed_list:
+                    if symbols_types[s] == "Timer":
+                        specific_script.write("\t\t\tinvoke = invoke || evaluate_%s()\n" % s)
+                    else:
+                        specific_script.write("\t\t\tvar temp_%s : %s = evaluate_%s()\n" % (s, symbols_class[s].__name__, s))
+                        specific_script.write("\t\t\tinvoke = invoke || (%s_v != temp_%s)\n" % (s, s))
+                        specific_script.write("\t\t\t%s_v = temp_%s\n" % (s, s))
+        specific_script.write("\n\n\tif invoke:\n\t\tinvoke_decision_tree()\n\n")
+        # Timer expiration
+        specific_script.write("func on_timer_expire(timer : int) -> void:\n")
+        specific_script.write("\tvar invoke : bool = false\n")
+        for s in symbols:
+            if s["Type"] == "Timer":
+                specific_script.write("\tinvoke = invoke || (timer == SYMB_%s_%s_TIMER)\n" % (uconf_name, s["Name"].upper()))
+        specific_script.write("\n\tif invoke:\n\t\tinvoke_decision_tree()\n\n\ton_timer_delegate(timer)\n\n")
+        # Finish with filled-by-user functions.
+        specific_script.write("func on_timer_delegate(timer : int) -> void:\n\tpass\n\n")
+        specific_script.write("func trigger(event : int) -> void:\n\tpass\n\n")
+        # All the evaluation function.
+        for s in symbols:
+            specific_script.write("func evaluate_%s():\n\tpass\n\n" % s["Name"])
+        specific_script.close()
+     
+
 def generate_main_constants(controls, common_symbols):
     with open("build/GlobalControls.gd", "w") as global_constants_singleton:
         global_constants_singleton.write("# Global constants for player controls identification\nextends Node\n\n")
@@ -839,7 +941,6 @@ def generate_main_constants(controls, common_symbols):
         global_constants_singleton.write(description)
         global_constants_singleton.write(" ]\n")
         global_constants_singleton.close()
-        # TODO Integrate common symbols.
 
 
 ## Main ##
