@@ -14,13 +14,15 @@ The result will be stored as follow:
 - <code>build/{name}_fsm.json</code> : Human readable graph for specific <code>name</code> configuration.
 - <code>build/{name}_fsm_pc.json</code> : Pre-computed graph with symbols replaced by their integer identifier counterpart.
 - <code>build/{name}_debug.dot</code> : A dot file for graphviz representing the states and transition for configuraton <code>name</code>.
+- <code>build/decision_tree_{name}.dot</code> : A dot file for graphviz representing the generated decision tree.
+- <code>build/decision_tree_{name}.gd</code> : A transition file containing the GDScript generated decision tree.
+- <code>build/{name}Controller.gd</code> : A GDScript managing the evaluation of the several symbols and the decision tree.
 - <code>build/{name}Controls.gd</code> : A Godot singleton containing symbols for the specific <code>name</code> configuration.
 - <code>build/GlobalControls.gd</code> : A Godot singleton containing the global constants related to the project.
 
 # Roadmap
 
-- Integrate usage of custom variables
-- Generate a decision tree that will trigger meta-events (which can be used for settings animation, for example)
+- Make a prototype using the tool.
 - Make controls grouping so that you can make a sequence within a controls group without being interrupt by controls that are not part of it.
 - For now, controls are "digital", meaning that they can only be pressed or released :
   - Consider analogic controls and add "quantity" to control input (pressed + value from deadzone to 1.0)
@@ -28,8 +30,9 @@ The result will be stored as follow:
 
 # Disclaimer
 
-The current project status is "work-in-progress". A very big effort is put into the decision tree generator.
-By now, the main script only checks for controls, symbols and rules, but does not generate anything.
+The current project is a work in progress, mainly oriented in generating GDScripts.
+The main script refactoring is needed but it runs smoothly.
+For now, all scripts are generated.
 
 # Licensing
 
