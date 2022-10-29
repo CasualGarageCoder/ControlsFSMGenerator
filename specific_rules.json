@@ -135,7 +135,7 @@
                     ],
                     "Duration" : 2000,
                     "Cooldown" : 50000,
-                    "Distribute" : [ "stun" ],
+                    "Distribute" : { "Players" : [ "stun" ] },
                     "Self" : [ "invulnerable" ]
                 },
                 {

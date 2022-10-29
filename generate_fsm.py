@@ -14,6 +14,12 @@ type_to_class = { "bool" : bool, "Timer" : bool, "Control" : int }
 def sort_counters_dict(dictionary):
     return { k : v for k, v in sorted(dictionary.items(), key = lambda a : a[1], reverse = True) }
 
+def find_symbol(t, symb):
+    for s in symb:
+        if t == s["Name"]:
+            return True
+    return False
+
 # current_rules : Rules that are still to evaluate.
 # attr : array with names of attribute to evaluate.
 # return map from attribute name to number of possible values.
@@ -916,6 +922,43 @@ def generate_specific(config_filepath, controls, common_symbols, generate_debug)
                         specific_script.write("\t\t\tinvoke = invoke || (%s_v != temp_%s)\n" % (s, s))
                         specific_script.write("\t\t\t%s_v = temp_%s\n" % (s, s))
         specific_script.write("\n\n\tif invoke:\n\t\tinvoke_decision_tree()\n\n")
+        # Triggering on sequence activation
+        specific_script.write("func activate_sequence(sequence_id : int, duration : int, cooldown : int) -> bool:\n")
+        specific_script.write("\tvar invoke : bool = false\n")
+        first_seq = True
+        for seq in sequences["List"]:
+            if "Self" in seq or "Distribute" in seq:
+                sequence_name = "SEQUENCE_%s" % seq["Name"].upper()
+                if first_seq:
+                    specific_script.write("\tif sequence_id == %s:\n" % sequence_name)
+                    first_seq = False
+                else:
+                    specific_script.write("\telif sequence_id == %s:\n" % sequence_name)
+            if "Self" in seq:
+                symbols_to_evaluate = seq["Self"]
+                specific_script.write("\t\tinvoke = false\n")
+                for s in symbols_to_evaluate:
+                    if not find_symbol(s, symbols):
+                        print("!!! Symbol '%s' is not defined (Sequence self trigger %s) !!!" % (s, sequence_name))
+                        sys.exit(1)
+                    specific_script.write("\t\tvar new_%s = evaluate_%s()\n" % (s, s))
+                    specific_script.write("\t\tinvoke = invoke || (new_%s != %s_v)\n" % (s, s))
+                    specific_script.write("\t\t%s_v = new_%s\n" % (s, s))
+                specific_script.write("\t\tif invoke:\n\t\t\tinvoke_decision_tree()\n")
+            if "Distribute" in seq:
+                for target in seq["Distribute"]:
+                    symbols_to_evaluate = seq["Distribute"][target]
+                    specific_script.write("\t\tfor i in get_tree().get_nodes_in_group(\"%s\"):\n" % target)
+                    specific_script.write("\t\t\tif i == self:\n\t\t\t\tcontinue\n\t\t\tinvoke = false\n")
+                    for s in symbols_to_evaluate:
+                        if not find_symbol(s, common_symbols):
+                            print("!!! Symbol '%s' is not defined as common symbol (Sequence distribute trigger %s) !!!" % (s, sequence_name))
+                            sys.exit(1)
+                        specific_script.write("\t\t\tvar new_dist_%s = i.evaluate_%s()\n" % (s, s))
+                        specific_script.write("\t\t\tinvoke = invoke || (new_dist_%s != i.%s_v)\n" % (s, s))
+                        specific_script.write("\t\t\ti.%s_v = new_dist_%s\n" % (s, s))
+                    specific_script.write("\t\t\tif invoke:\n\t\t\t\ti.invoke_decision_tree()\n")
+        specific_script.write("\treturn delegate_sequence_activation(sequence_id, duration, cooldown)\n\n")
         # Timer expiration
         specific_script.write("func on_timer_expire(timer : int) -> void:\n")
         specific_script.write("\tvar invoke : bool = false\n")
@@ -925,6 +968,8 @@ def generate_specific(config_filepath, controls, common_symbols, generate_debug)
         specific_script.write("\n\tif invoke:\n\t\tinvoke_decision_tree()\n\n\ton_timer_delegate(timer)\n\n")
         # Finish with filled-by-user functions.
         specific_script.write("func on_timer_delegate(timer : int) -> void:\n\tpass\n\n")
+        specific_script.write("func delegate_sequence_activation(sequence_id : int, duration : int, cooldown : int) -> bool:\n")
+        specific_script.write("\treturn false\n\n")
         specific_script.write("func trigger(event : int) -> void:\n\tpass\n\n")
         # All the evaluation function.
         for s in symbols:

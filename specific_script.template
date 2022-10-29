@@ -1,3 +1,4 @@
+class_name {Specific_Name}Controller
 extends MainController
 
 # Except timer
@@ -52,6 +53,42 @@ func on_timer_expire(timer : int) -> void:
                 invoke_decision_tree()
 
         on_timer_delegate(timer)
+
+# Extra behavior in case of self symbol evaluation triggering or distributed symbol triggering.
+func activate_sequence(sequence_id : int, duration : int, cooldown : int) -> bool:
+        # For each sequence involved in symbol triggering
+
+        if sequence_id == {sequence_trigger}:
+                var invoke : bool = false
+                # For each self triggering.
+                var new_{symbol} = evaluate_{symbol}()
+                invoke |= new_{symbol} != {symbol}_v
+                {symbol}_v = new_{symbol}
+
+                if invoke:
+                        invoke_decision_tree()
+
+                # For each distributed triggering.
+                # For each group
+                for i in get_tree().get_nodes_in_group("{group}"):
+                        if i == self:
+                                continue
+                        # Smelly code as it could easily break if functions are not defined ...
+                        invoke = false
+                        # For each symbol defined for this group
+                        var new_dist_{symbol} = i.evaluate_{symbol}()
+                        invoke |= i.{symbol}_v != new_dist_{symbol}
+                        i.{symbol}_v = new_dist_{symbol}
+
+                        if invoke:
+                                i.invoke_decision_tree()
+        # possible elif:
+
+        return delegate_sequence_activation(sequence_id, duration, cooldown)
+
+# Extra behavior for sequence activation.
+func delegate_sequence_activation(sequence_id : int, duration : int, cooldow: int) -> bool:
+        return false
 
 # Extra behavior for timer expiration.
 func on_timer_delegate(timer : int) -> void:
