@@ -417,7 +417,7 @@ def create_decision_tree(total_rules, symbols_types, config_name, is_debug):
                 continue
             statement = node[statement_id]
             if "Event" in statement:
-                identifier = "EVENT_%s_%s" % (config_name.upper(), statement["Event"].upper())
+                identifier = "EVENT_%s" % statement["Event"].upper()
                 write_indent(out_gd, len(stack), "trigger(%s)" % identifier)
                 cursor = stack.pop()
                 cursor["Value"] += 1
