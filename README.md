@@ -14,9 +14,9 @@ The result will be stored as follow:
 - <code>build/debug/{name}_fsm.json</code> : Human readable graph for specific <code>name</code> configuration.
 - <code>build/debug/{name}_debug.dot</code> : A dot file for graphviz representing the states and transition for configuraton <code>name</code>.
 - <code>build/debug/decision_tree_{name}.dot</code> : A dot file for graphviz representing the generated decision tree.
-- <code>build/{name}Controller.gd</code> : A GDScript managing the evaluation of the several symbols and the decision tree.
+- <code>build/{name}_controller.gd</code> : A GDScript managing the evaluation of the several symbols and the decision tree.
 - <code>build/{name}_fsm_pc.json</code> : Pre-computed graph with symbols replaced by their integer identifier counterpart.
-- <code>build/GlobalControls.gd</code> : A Godot singleton containing the global constants related to the project.
+- <code>build/global_controls.gd</code> : A Godot singleton containing the global constants related to the project.
 
 # Roadmap
 

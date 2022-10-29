@@ -772,13 +772,13 @@ def generate_specific(config_filepath, controls, common_symbols, generate_debug)
 
     file_content = json.dumps(pre_computed, indent=4)
 
-    save_target = "build/%s_fsm_pc.json" % config_name
+    save_target = "build/%s_fsm_pc.json" % config_name.lower()
     with open(save_target, "w") as generated_file:
         generated_file.write(file_content)
         generated_file.close()
         print("Precomputed result stored in %s" % save_target)
 
-    with open("build/%sController.gd" % config_name, "w") as specific_constants:
+    with open("build/%s_controller.gd" % config_name.lower(), "w") as specific_constants:
         specific_constants.write("extends MainController\n\n")
         sequences_list = sequences["List"]
         for s in range(len(sequences_list)):
@@ -848,7 +848,7 @@ def generate_specific(config_filepath, controls, common_symbols, generate_debug)
         print("## Decision tree manage all the events.")
 
     # And now, we are ready to generate the specific script, the last thing we'll do here.
-    script_path = "build/%sController.gd" % config_name
+    script_path = "build/%s_controller.gd" % config_name.lower()
     print("## Print specific controller script in : %s" % script_path)
     uconf_name = config_name.upper()
     with open(script_path, "a") as specific_script:
@@ -933,7 +933,7 @@ def generate_specific(config_filepath, controls, common_symbols, generate_debug)
      
 
 def generate_main_constants(controls, common_symbols):
-    with open("build/GlobalControls.gd", "w") as global_constants_singleton:
+    with open("build/global_controls.gd", "w") as global_constants_singleton:
         global_constants_singleton.write("# Global constants for player controls identification\nextends Node\n\n")
         for c in range(len(controls)):
             global_constants_singleton.write("const PLAYER_CONTROL_%s : int = %d\n" % (controls[c].upper(), c))
