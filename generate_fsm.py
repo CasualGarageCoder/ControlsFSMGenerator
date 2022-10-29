@@ -475,6 +475,7 @@ def generate_specific(config_filepath, controls, common_symbols, generate_debug)
         events = {}
         control_triggered_symbols = {}
         process_triggered_symbols = []
+        can_move_conditions = {}
         # Command line arguments are controls.
         with open(config_filepath, "r") as config_file:
             configuration = json.load(config_file)
@@ -487,6 +488,7 @@ def generate_specific(config_filepath, controls, common_symbols, generate_debug)
             events = configuration["Rules"]["Events"]
             process_triggered_symbols = configuration["Rules"]["Frame"]
             control_triggered_symbols = configuration["Rules"]["Trigger"]
+            can_move_conditions = configuration["Rules"]["Controlable"]
 
         # Determine events condition tree
 
@@ -896,6 +898,7 @@ def generate_specific(config_filepath, controls, common_symbols, generate_debug)
         specific_script.write("\tif invoke:\n\t\tinvoke_decision_tree()\n\n")
         # Delegate process : Manage on control trigger.
         specific_script.write("func process_move(control : int, pressed : bool) -> void:\n\tvar invoke : bool = false\n")
+        # Disable move control using conditions in Rules/Controlable.
         for t in control_triggered_symbols:
             specific_script.write("\tif control == PLAYER_CONTROL_%s:\n" % t.upper())
             press_list = control_triggered_symbols[t]["onPress"] if "onPress" in control_triggered_symbols[t] else []
@@ -959,6 +962,15 @@ def generate_specific(config_filepath, controls, common_symbols, generate_debug)
                         specific_script.write("\t\t\ti.%s_v = new_dist_%s\n" % (s, s))
                     specific_script.write("\t\t\tif invoke:\n\t\t\t\ti.invoke_decision_tree()\n")
         specific_script.write("\treturn delegate_sequence_activation(sequence_id, duration, cooldown)\n\n")
+        # Compute 'can_move' based on "Rules/Controlable".
+        specific_script.write("func can_move() -> bool:\n")
+        if len(can_move_conditions) == 0:
+            specific_script.write("\treturn true\n\n")
+        else:
+            # TODO Convert the value using the type and replacing the possible literals.
+            condition_tokens = [ "%s() == %s" % (k, str(v).lower()) for (k, v) in can_move_conditions.items() ]
+            condition_string = " && ".join(condition_tokens)
+            specific_script.write("\treturn %s\n\n" % condition_string)
         # Timer expiration
         specific_script.write("func on_timer_expire(timer : int) -> void:\n")
         specific_script.write("\tvar invoke : bool = false\n")
@@ -973,7 +985,11 @@ def generate_specific(config_filepath, controls, common_symbols, generate_debug)
         specific_script.write("func trigger(event : int) -> void:\n\tpass\n\n")
         # All the evaluation function.
         for s in symbols:
-            specific_script.write("func evaluate_%s():\n\tpass\n\n" % s["Name"])
+            specific_script.write("func evaluate_%s() -> %s:\n" % (s["Name"], symbols_class[s["Name"]].__name__))
+            if symbols_class[s["Name"]] == bool:
+                specific_script.write("\treturn false\n\n")
+            else:
+                specific_script.write("\treturn 0\n\n")
         specific_script.close()
      
 
