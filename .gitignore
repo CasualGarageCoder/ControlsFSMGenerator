@@ -1,3 +1,5 @@
 .*.swp
 build
 build/*
+project
+project/*
