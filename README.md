@@ -18,6 +18,8 @@ The result will be stored as follow:
 - <code>build/{name}_fsm_pc.json</code> : Pre-computed graph with symbols replaced by their integer identifier counterpart.
 - <code>build/global_controls.gd</code> : A Godot singleton containing the global constants related to the project.
 
+The base script is named <code>control_fsm.gd</code> and is located at the project root.
+
 # Roadmap
 
 - Make a prototype using the tool.
