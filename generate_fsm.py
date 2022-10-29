@@ -276,7 +276,7 @@ def create_decision_tree(total_rules, symbols_types, config_name, is_debug):
                 prune.put(decision_tree) # Not optimal at all.
 
     if is_debug: # Generate the verbose debug JSON
-        with open("build/decision_tree_%s.json" % config_name, "w") as out_json:
+        with open("build/debug/decision_tree_%s.json" % config_name, "w") as out_json:
             file_content = json.dumps(decision_tree, indent=4)
             out_json.write(file_content)
             out_json.write("\n")
@@ -318,7 +318,7 @@ def create_decision_tree(total_rules, symbols_types, config_name, is_debug):
                 branches.put(cursor["Values"][v])
 
     if is_debug: # Generate the dot.
-        with open("build/decision_tree_%s.dot" % config_name, "w") as out_dot:
+        with open("build/debug/decision_tree_%s.dot" % config_name, "w") as out_dot:
             # The decision tree has been cleared.
             node_id = 0
             out_dot.write("digraph G {\n")
@@ -728,11 +728,12 @@ def generate_specific(config_filepath, controls, common_symbols, generate_debug)
 
     file_content = json.dumps(complete_content, indent=4)
 
-    save_target = "build/%s_fsm.json" % config_name
-    with open(save_target, "w") as generated_file:
-        generated_file.write(file_content)
-        generated_file.close()
-        print("Result stored in %s" % save_target)
+    if generate_debug:
+        save_target = "build/debug/%s_fsm.json" % config_name
+        with open(save_target, "w") as generated_file:
+            generated_file.write(file_content)
+            generated_file.close()
+            print("Debug Result stored in %s" % save_target)
 
     # Generate pre-computed description file.
     states_id = {}
@@ -806,7 +807,7 @@ def generate_specific(config_filepath, controls, common_symbols, generate_debug)
 
 
     if generate_debug:
-        with open("build/%s_debug.dot" % config_name, "w") as debug_file:
+        with open("build/debug/%s_debug.dot" % config_name, "w") as debug_file:
             debug_file.write("digraph debug_fsm {\n")
             debug_file.write("\tedge [arrowhead=normal, fontsize=6];\n")
             debug_file.write("\tnode [shape=box, fontsize=8];\n")
@@ -879,6 +880,7 @@ def generate_specific(config_filepath, controls, common_symbols, generate_debug)
             for line in lines:
                 specific_script.write("\t%s" % line)
             generated_dt.close()
+        os.remove(decision_tree_path)
         # Delegate process : Manage per-frame trigger
         specific_script.write("\nfunc delegate_process() -> void:\n\tvar invoke : bool = false\n")
         for s in process_triggered_symbols:
@@ -951,6 +953,14 @@ def main():
     generate_debug = False
 
     try:
+        os.mkdir("build")
+    except OSError as error:
+        if error.errno != 17:
+            print("!!! Can't create build folder !!!")
+            print(error)
+            sys.exit(1)
+
+    try:
         opts, args = getopt.getopt(sys.argv[1:],"dg:s:")
     except getopt.GetoptError:
         print("%s -d -g [path_to_global_conf.json] -s [path_to_first_specific.json] -s ..." % sys.argv[0])
@@ -962,9 +972,12 @@ def main():
             specific_filepaths.append(arg)
         elif opt == "-d":
             try:
-                os.mkdir("build")
+                os.mkdir("build/debug")
             except OSError as error:
-                pass
+                if error.errno != 17:
+                    print("!!! Can't create debug folder !!!")
+                    print(error)
+                    sys.exit(1)
             generate_debug = True
 
     print("Global Filepath = '%s'" % global_filepath)
