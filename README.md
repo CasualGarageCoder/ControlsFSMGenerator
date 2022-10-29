@@ -11,13 +11,11 @@ The <code>-d</code> option activates the debug mode.
 # Result
 
 The result will be stored as follow:
-- <code>build/{name}_fsm.json</code> : Human readable graph for specific <code>name</code> configuration.
-- <code>build/{name}_fsm_pc.json</code> : Pre-computed graph with symbols replaced by their integer identifier counterpart.
-- <code>build/{name}_debug.dot</code> : A dot file for graphviz representing the states and transition for configuraton <code>name</code>.
-- <code>build/decision_tree_{name}.dot</code> : A dot file for graphviz representing the generated decision tree.
-- <code>build/decision_tree_{name}.gd</code> : A transition file containing the GDScript generated decision tree.
+- <code>build/debug/{name}_fsm.json</code> : Human readable graph for specific <code>name</code> configuration.
+- <code>build/debug/{name}_debug.dot</code> : A dot file for graphviz representing the states and transition for configuraton <code>name</code>.
+- <code>build/debug/decision_tree_{name}.dot</code> : A dot file for graphviz representing the generated decision tree.
 - <code>build/{name}Controller.gd</code> : A GDScript managing the evaluation of the several symbols and the decision tree.
-- <code>build/{name}Controls.gd</code> : A Godot singleton containing symbols for the specific <code>name</code> configuration.
+- <code>build/{name}_fsm_pc.json</code> : Pre-computed graph with symbols replaced by their integer identifier counterpart.
 - <code>build/GlobalControls.gd</code> : A Godot singleton containing the global constants related to the project.
 
 # Roadmap

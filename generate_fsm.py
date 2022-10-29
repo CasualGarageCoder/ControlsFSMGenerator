@@ -778,32 +778,31 @@ def generate_specific(config_filepath, controls, common_symbols, generate_debug)
         generated_file.close()
         print("Precomputed result stored in %s" % save_target)
 
-    with open("build/%sControls.gd" % config_name, "w") as specific_constants_singleton:
-        specific_constants_singleton.write("# Constants for character '%s' controls\nextends Node\n\n" % config_name)
+    with open("build/%sController.gd" % config_name, "w") as specific_constants:
+        specific_constants.write("extends MainController\n\n")
         sequences_list = sequences["List"]
-        uconfig_name = config_name.upper()
         for s in range(len(sequences_list)):
             useq_name = sequences_list[s]["Name"].upper()
-            specific_constants_singleton.write("const SEQUENCE_%s_%s : int = %d\n" % (uconfig_name, useq_name, s))
-            specific_constants_singleton.write("const SEQUENCE_%s_%s_DURATION_TIMER : int = %d\n" % (uconfig_name, useq_name, (s * 2)))
-            specific_constants_singleton.write("const SEQUENCE_%s_%s_COOLDOWN_TIMER : int = %d\n" % (uconfig_name, useq_name, ((s * 2) + 1)))
-        specific_constants_singleton.write("const SEQUENCE_%s_SEQUENCE_TIMER : int = %d\n" % (uconfig_name, len(sequences_list) * 2))
+            specific_constants.write("const SEQUENCE_%s : int = %d\n" % (useq_name, s))
+            specific_constants.write("const SEQUENCE_%s_DURATION_TIMER : int = %d\n" % (useq_name, (s * 2)))
+            specific_constants.write("const SEQUENCE_%s_COOLDOWN_TIMER : int = %d\n" % (useq_name, ((s * 2) + 1)))
+        specific_constants.write("const SEQUENCE_TIMER : int = %d\n" % (len(sequences_list) * 2))
         count = len(sequences_list) * 2 + 1
         ## Add timer symbols
         for s in symbols:
             if s["Type"] == "Timer":
-                specific_constants_singleton.write("const SYMB_%s_%s_TIMER : int = %d\n" % (uconfig_name, s["Name"].upper(), count))
+                specific_constants.write("const %s_TIMER : int = %d\n" % (s["Name"].upper(), count))
                 count += 1
         # Add events
         count = 0
         event_descriptor = []
         for e in events:
             event_name = e.upper()
-            identifier = "EVENT_%s_%s" % (uconfig_name, event_name)
+            identifier = "EVENT_%s" % event_name
             event_descriptor.append(e)
-            specific_constants_singleton.write("const %s : int = %d\n" % (identifier, count))
+            specific_constants.write("const %s : int = %d\n" % (identifier, count))
             count += 1
-        specific_constants_singleton.write("const EVENT_DESCRIPTOR_%s : Array = %s" % (uconfig_name, event_descriptor))
+        specific_constants.write("const EVENT_DESCRIPTOR : Array = %s" % (event_descriptor))
 
 
     if generate_debug:
@@ -852,8 +851,8 @@ def generate_specific(config_filepath, controls, common_symbols, generate_debug)
     script_path = "build/%sController.gd" % config_name
     print("## Print specific controller script in : %s" % script_path)
     uconf_name = config_name.upper()
-    with open(script_path, "w") as specific_script:
-        specific_script.write("extends MainController\n\n")
+    with open(script_path, "a") as specific_script:
+        specific_script.write("\n\n")
         # All symbols
         for s in symbols:
             if not s["Type"] == "Timer":
