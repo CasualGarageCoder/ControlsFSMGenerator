@@ -922,7 +922,7 @@ def generate_specific(config_filepath, controls, common_symbols, generate_debug)
                         specific_script.write("\t\t\tinvoke = invoke || evaluate_%s()\n" % s)
                     else:
                         specific_script.write("\t\t\tvar temp_%s : %s = evaluate_%s()\n" % (s, symbols_class[s].__name__, s))
-                        specific_script.write("\t\t\tinvoke = invoke || %s_v != temp_%s)\n" % (s, s))
+                        specific_script.write("\t\t\tinvoke = invoke || (%s_v != temp_%s)\n" % (s, s))
                         specific_script.write("\t\t\t%s_v = temp_%s\n" % (s, s))
         specific_script.write("\n\n\tif invoke:\n\t\tinvoke_decision_tree()\n\n")
         # Triggering on sequence activation
