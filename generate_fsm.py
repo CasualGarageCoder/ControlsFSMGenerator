@@ -20,6 +20,18 @@ def find_symbol(t, symb):
             return True
     return False
 
+def evalutate_symbols(prefix, symbols, temp_name, specific_script, symbols_class, symbols_types, print_invoke = True):
+    for s in symbols:
+        if symbols_types[s] == "Timer":
+            specific_script.write("%sinvoke = invoke || evaluate_%s()\n" % (prefix, s))
+        else:
+            specific_script.write("%svar %s_%s : %s = evaluate_%s()\n" % (prefix, temp_name, s, symbols_class[s].__name__, s))
+            specific_script.write("%sinvoke = invoke || (%s_v != %s_%s)\n" % (prefix, s, temp_name, s))
+            specific_script.write("%s%s_v = %s_%s\n" % (prefix, s, temp_name, s))
+    if print_invoke:
+        specific_script.write("%sif invoke:\n%s\tinvoke_decision_tree()\n\n" % (prefix, prefix))
+
+
 # current_rules : Rules that are still to evaluate.
 # attr : array with names of attribute to evaluate.
 # return map from attribute name to number of possible values.
@@ -890,12 +902,7 @@ def generate_specific(config_filepath, controls, common_symbols, generate_debug)
         os.remove(decision_tree_path)
         # Delegate process : Manage per-frame trigger
         specific_script.write("\nfunc delegate_process() -> void:\n\tvar invoke : bool = false\n")
-        for s in process_triggered_symbols:
-            if symbols_types[s] == "Timer":
-                specific_script_write("\tinvoke = invoke || evaluate_%s()\n" % s)
-            else:
-                specific_script.write("\tvar new_%s : %s = evaluate_%s()\n\tinvoke = invoke || (new_%s != %s_v)\n\t%s_v = new_%s\n" % (s, symbols_class[s].__name__, s, s, s, s, s))
-        specific_script.write("\tif invoke:\n\t\tinvoke_decision_tree()\n\n")
+        evalutate_symbols("\t", process_triggered_symbols, "new", specific_script, symbols_class, symbols_types)
         # Delegate process : Manage on control trigger.
         specific_script.write("func process_move(control : int, pressed : bool) -> void:\n\tvar invoke : bool = false\n")
         # Disable move control using conditions in Rules/Controlable.
@@ -904,26 +911,14 @@ def generate_specific(config_filepath, controls, common_symbols, generate_debug)
             press_list = control_triggered_symbols[t]["onPress"] if "onPress" in control_triggered_symbols[t] else []
             if len(press_list) > 0:
                 specific_script.write("\t\tif pressed:\n")
-                for s in press_list:
-                    if symbols_types[s] == "Timer":
-                        specific_script.write("\t\t\tinvoke = invoke || evaluate_%s()\n" % s)
-                    else:
-                        specific_script.write("\t\t\tvar temp_%s : %s = evaluate_%s()\n" % (s, symbols_class[s].__name__, s))
-                        specific_script.write("\t\t\tinvoke = invoke || (%s_v != temp_%s)\n" % (s, s))
-                        specific_script.write("\t\t\t%s_v = temp_%s\n" % (s, s))
+                evalutate_symbols("\t\t\t", press_list, "temp", specific_script, symbols_class, symbols_types, False)
             unpressed_list = control_triggered_symbols[t]["onRelease"] if "onRelease" in control_triggered_symbols[t] else []
             if len(unpressed_list) > 0:
                 if len(press_list) > 0:
                     specific_script.write("\t\telse:\n")
                 else:
                     specific_script.write("\t\tif not pressed:\n")
-                for s in unpressed_list:
-                    if symbols_types[s] == "Timer":
-                        specific_script.write("\t\t\tinvoke = invoke || evaluate_%s()\n" % s)
-                    else:
-                        specific_script.write("\t\t\tvar temp_%s : %s = evaluate_%s()\n" % (s, symbols_class[s].__name__, s))
-                        specific_script.write("\t\t\tinvoke = invoke || (%s_v != temp_%s)\n" % (s, s))
-                        specific_script.write("\t\t\t%s_v = temp_%s\n" % (s, s))
+                evalutate_symbols("\t\t\t", unpressed_list, "temp", specific_script, symbols_class, symbols_types, False)
         specific_script.write("\n\n\tif invoke:\n\t\tinvoke_decision_tree()\n\n")
         # Triggering on sequence activation
         specific_script.write("func activate_sequence(sequence_id : int, duration : int, cooldown : int) -> bool:\n")
@@ -940,27 +935,13 @@ def generate_specific(config_filepath, controls, common_symbols, generate_debug)
             if "Self" in seq:
                 symbols_to_evaluate = seq["Self"]
                 specific_script.write("\t\tinvoke = false\n")
-                for s in symbols_to_evaluate:
-                    if not find_symbol(s, symbols):
-                        print("!!! Symbol '%s' is not defined (Sequence self trigger %s) !!!" % (s, sequence_name))
-                        sys.exit(1)
-                    specific_script.write("\t\tvar new_%s = evaluate_%s()\n" % (s, s))
-                    specific_script.write("\t\tinvoke = invoke || (new_%s != %s_v)\n" % (s, s))
-                    specific_script.write("\t\t%s_v = new_%s\n" % (s, s))
-                specific_script.write("\t\tif invoke:\n\t\t\tinvoke_decision_tree()\n")
+                evalutate_symbols("\t\t", symbols_to_evaluate, "new", specific_script, symbols_class, symbols_types)
             if "Distribute" in seq:
                 for target in seq["Distribute"]:
                     symbols_to_evaluate = seq["Distribute"][target]
                     specific_script.write("\t\tfor i in get_tree().get_nodes_in_group(\"%s\"):\n" % target)
                     specific_script.write("\t\t\tif i == self:\n\t\t\t\tcontinue\n\t\t\tinvoke = false\n")
-                    for s in symbols_to_evaluate:
-                        if not find_symbol(s, common_symbols):
-                            print("!!! Symbol '%s' is not defined as common symbol (Sequence distribute trigger %s) !!!" % (s, sequence_name))
-                            sys.exit(1)
-                        specific_script.write("\t\t\tvar new_dist_%s = i.evaluate_%s()\n" % (s, s))
-                        specific_script.write("\t\t\tinvoke = invoke || (new_dist_%s != i.%s_v)\n" % (s, s))
-                        specific_script.write("\t\t\ti.%s_v = new_dist_%s\n" % (s, s))
-                    specific_script.write("\t\t\tif invoke:\n\t\t\t\ti.invoke_decision_tree()\n")
+                    evalutate_symbols("\t\t\t", symbols_to_evaluate, "new_dist", specific_script, symbols_class, symbols_types)
         specific_script.write("\treturn delegate_sequence_activation(sequence_id, duration, cooldown)\n\n")
         # Compute 'can_move' based on "Rules/Controlable".
         specific_script.write("func can_move() -> bool:\n")
