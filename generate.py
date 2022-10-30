@@ -477,7 +477,7 @@ def create_decision_tree(total_rules, symbols_types, config_name, is_debug):
 def generate_specific(config_filepath, controls, common_symbols, generate_debug):
     control_id = {}
     for i in range(len(controls)):
-        control_id[controls[i]] = i
+        control_id[controls[i]] = i+1
 
         order_matters = []
         sequences = {}
@@ -981,7 +981,7 @@ def generate_main_constants(controls, common_symbols):
     with open("build/global_controls.gd", "w") as global_constants_singleton:
         global_constants_singleton.write("# Global constants for player controls identification\nextends Node\n\n")
         for c in range(len(controls)):
-            global_constants_singleton.write("const PLAYER_CONTROL_%s : int = %d\n" % (controls[c].upper(), c))
+            global_constants_singleton.write("const PLAYER_CONTROL_%s : int = %d\n" % (controls[c].upper(), c+1))
         global_constants_singleton.write("const PLAYER_CONTROLS_DESCRIPTION : Array = [ ")
         description = ",".join(map(lambda s : "\"%s\"" % s.upper(), controls))
         global_constants_singleton.write(description)
