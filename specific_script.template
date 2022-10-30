@@ -87,7 +87,7 @@ func activate_sequence(sequence_id : int, duration : int, cooldown : int) -> boo
         return delegate_sequence_activation(sequence_id, duration, cooldown)
 
 # Extra behavior for sequence activation.
-func delegate_sequence_activation(sequence_id : int, duration : int, cooldow: int) -> bool:
+func delegate_sequence_activation(sequence_id : int, duration : int, cooldown: int) -> bool:
         return false
 
 # Extra behavior for timer expiration.

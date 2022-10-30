@@ -141,7 +141,7 @@ func _process(delta : float):
 func trigger_timer(timer : int) -> bool:
         if current_time < timer_expire[timer]:
                 return false
-        timer_expire[timer] = current_timer + timer_timeout[timer]
+        timer_expire[timer] = current_time + timer_timeout[timer]
         return true
 
 ## "Virtual Methods"
