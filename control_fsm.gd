@@ -52,7 +52,7 @@ func _ready():
                 # Let the fun begins.
                 current_state = json_content["Start"]
                 var control_count = json_content["ControlCount"]
-                for _i in range(control_count):
+                for _i in range(control_count + 1):
                         current_control.append(false)
                 var json_sequences : Array = json_content["Sequences"]
                 var seq_count : int = json_sequences.size()
