@@ -799,7 +799,10 @@ def generate_specific(config_filepath, controls, common_symbols, generate_debug)
         print("Precomputed result stored in %s" % save_target)
 
     with open("build/%s_controller.gd" % config_name.lower(), "w") as specific_constants:
-        specific_constants.write("extends MainController\n\n")
+        name_tokens = config_name.split('_')
+        specific_script_class_name = ''.join(e.title() for e in name_tokens)
+        specific_constants.write("class_name %sCharacterController\n" % specific_script_class_name)
+        specific_constants.write("extends BaseCharacterController\n\n")
         sequences_list = sequences["List"]
         for s in range(len(sequences_list)):
             useq_name = sequences_list[s]["Name"].upper()

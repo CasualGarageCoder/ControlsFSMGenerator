@@ -1,4 +1,4 @@
-class_name MainController
+class_name BaseCharacterController
 extends Node
 
 export(String) var descriptor_filename : String
