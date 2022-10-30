@@ -900,7 +900,7 @@ def generate_specific(config_filepath, controls, common_symbols, generate_debug)
         specific_script.write("func process_move(control : int, pressed : bool) -> void:\n\tvar invoke : bool = false\n")
         # Disable move control using conditions in Rules/Controlable.
         for t in control_triggered_symbols:
-            specific_script.write("\tif control == GlobalConstants.PLAYER_CONTROL_%s:\n" % t.upper())
+            specific_script.write("\tif control == GlobalControls.PLAYER_CONTROL_%s:\n" % t.upper())
             press_list = control_triggered_symbols[t]["onPress"] if "onPress" in control_triggered_symbols[t] else []
             if len(press_list) > 0:
                 specific_script.write("\t\tif pressed:\n")
