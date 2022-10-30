@@ -865,17 +865,17 @@ def generate_specific(config_filepath, controls, common_symbols, generate_debug)
         for s in symbols:
             if not s["Type"] == "Timer":
                 specific_script.write("var %s_v : %s\n" % (s["Name"], symbols_class[s["Name"]].__name__))
-        specific_script.write("\nfunc _ready():")
+        specific_script.write("\nfunc _ready():\n")
         # Add local timers
         for s in symbols:
             if s["Type"] == "Timer":
-                specific_script.write("\ttimer_expire.append(-1)\n\ttime_timeout.append(%d)\n" % s["Default"])
+                specific_script.write("\ttimer_expire.append(-1)\n\ttimer_timeout.append(%d)\n" % s["Default"])
         specific_script.write("\n")
         # Symbol accessors
         for s in symbols:
             if s["Type"] == "Timer":
                 specific_script.write("func %s() -> bool:\n" % s["Name"])
-                specific_script.write("\tvar identifier : int = SYMB_%s_%s_TIMER\n" % (uconf_name, s["Name"].upper()))
+                specific_script.write("\tvar identifier : int = %s_TIMER\n" % (s["Name"].upper()))
                 specific_script.write("\treturn timer_expire[identifier] > 0 && current_time < timer_expire[identifier]\n\n")
             else:
                 specific_script.write("func %s() -> %s:\n\treturn %s_v\n\n" % (s["Name"], symbols_class[s["Name"]].__name__, s["Name"]))
@@ -900,7 +900,7 @@ def generate_specific(config_filepath, controls, common_symbols, generate_debug)
         specific_script.write("func process_move(control : int, pressed : bool) -> void:\n\tvar invoke : bool = false\n")
         # Disable move control using conditions in Rules/Controlable.
         for t in control_triggered_symbols:
-            specific_script.write("\tif control == PLAYER_CONTROL_%s:\n" % t.upper())
+            specific_script.write("\tif control == GlobalConstants.PLAYER_CONTROL_%s:\n" % t.upper())
             press_list = control_triggered_symbols[t]["onPress"] if "onPress" in control_triggered_symbols[t] else []
             if len(press_list) > 0:
                 specific_script.write("\t\tif pressed:\n")
@@ -922,7 +922,7 @@ def generate_specific(config_filepath, controls, common_symbols, generate_debug)
                         specific_script.write("\t\t\tinvoke = invoke || evaluate_%s()\n" % s)
                     else:
                         specific_script.write("\t\t\tvar temp_%s : %s = evaluate_%s()\n" % (s, symbols_class[s].__name__, s))
-                        specific_script.write("\t\t\tinvoke = invoke || (%s_v != temp_%s)\n" % (s, s))
+                        specific_script.write("\t\t\tinvoke = invoke || %s_v != temp_%s)\n" % (s, s))
                         specific_script.write("\t\t\t%s_v = temp_%s\n" % (s, s))
         specific_script.write("\n\n\tif invoke:\n\t\tinvoke_decision_tree()\n\n")
         # Triggering on sequence activation
@@ -976,7 +976,7 @@ def generate_specific(config_filepath, controls, common_symbols, generate_debug)
         specific_script.write("\tvar invoke : bool = false\n")
         for s in symbols:
             if s["Type"] == "Timer":
-                specific_script.write("\tinvoke = invoke || (timer == SYMB_%s_%s_TIMER)\n" % (uconf_name, s["Name"].upper()))
+                specific_script.write("\tinvoke = invoke || (timer == %s_TIMER)\n" % (s["Name"].upper()))
         specific_script.write("\n\tif invoke:\n\t\tinvoke_decision_tree()\n\n\ton_timer_delegate(timer)\n\n")
         # Finish with filled-by-user functions.
         specific_script.write("func on_timer_delegate(timer : int) -> void:\n\tpass\n\n")
