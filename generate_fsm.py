@@ -894,7 +894,7 @@ def generate_specific(config_filepath, controls, common_symbols, generate_debug)
             if symbols_types[s] == "Timer":
                 specific_script_write("\tinvoke = invoke || evaluate_%s()\n" % s)
             else:
-                specific_script.write("\tvar new_%s : %s = evaluate_%s()\n\tinvoke = invoke || (new_%s != %s_v)\n\t%s_v = new_%s\n" % (s, symbols_class[s].__name__, s, s, s, s, s))
+                specific_script.write("\tvar new_%s : %s = evaluate_%s()\n\tinvoke = invoke || (new_%s != %s_v)\n\t%s_v = new_%s\n" % (s, symbols_class[s].__name__, s, s, s, s, s))
         specific_script.write("\tif invoke:\n\t\tinvoke_decision_tree()\n\n")
         # Delegate process : Manage on control trigger.
         specific_script.write("func process_move(control : int, pressed : bool) -> void:\n\tvar invoke : bool = false\n")
