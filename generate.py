@@ -907,6 +907,7 @@ def generate_specific(config_filepath, controls, common_symbols, generate_debug)
             if s["Type"] == "Timer":
                 specific_script.write("func %s() -> bool:\n" % s["Name"])
                 specific_script.write("\tvar identifier : int = %s_TIMER\n" % (s["Name"].upper()))
+                specific_script.write("\tif identifier >== timer_expire.size():\n\t\treturn false\n")
                 specific_script.write("\treturn timer_expire[identifier] > 0 && current_time < timer_expire[identifier]\n\n")
             else:
                 specific_script.write("func %s() -> %s:\n\treturn %s_v\n\n" % (s["Name"], symbols_class[s["Name"]].__name__, s["Name"]))
