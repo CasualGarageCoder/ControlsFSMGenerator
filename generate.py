@@ -970,7 +970,7 @@ def generate_specific(config_filepath, controls, common_symbols, generate_debug)
                     evalutate_symbols("\t\t\t", symbols_to_evaluate, "new_dist", specific_script, symbols_class, symbols_types, True, "i.")
         specific_script.write("\treturn delegate_sequence_activation(sequence_id, duration, cooldown)\n\n")
         # Override "reset" function to set the symbols/variable in their "default" values.
-        specific_script.write("func reset() -> void\n")
+        specific_script.write("func reset() -> void:\n")
         for s in symbols:
             if not s["Type"] == "Timer":
                 # Compute default value.
