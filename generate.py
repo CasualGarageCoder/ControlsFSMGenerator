@@ -876,11 +876,16 @@ def generate_specific(config_filepath, controls, common_symbols, generate_debug)
     uconf_name = config_name.upper()
     with open(script_path, "a") as specific_script:
         specific_script.write("\n\n")
+        # Export variable
+        specific_script.write("export (NodePath) var controlled_node_path : NodePath\n\n")
+        specific_script.write("onready var controlled_node : Node\n\n")
         # All symbols
         for s in symbols:
             if not s["Type"] == "Timer":
                 specific_script.write("var %s_v : %s\n" % (s["Name"], symbols_class[s["Name"]].__name__))
         specific_script.write("\nfunc _ready():\n")
+        # Controlled node.
+        specific_script.write("\tcontrolled_node = get_node(controlled_node_path)\n")
         # Add local timers
         for s in symbols:
             if s["Type"] == "Timer":
@@ -943,9 +948,10 @@ def generate_specific(config_filepath, controls, common_symbols, generate_debug)
                 for target in seq["Distribute"]:
                     symbols_to_evaluate = seq["Distribute"][target]
                     specific_script.write("\t\tfor i in get_tree().get_nodes_in_group(\"%s\"):\n" % target)
-                    specific_script.write("\t\t\tif i == self:\n\t\t\t\tcontinue\n\t\t\tinvoke = false\n")
+                    specific_script.write("\t\t\tif i == controlled_node:\n\t\t\t\tcontinue\n\t\t\tinvoke = false\n")
                     evalutate_symbols("\t\t\t", symbols_to_evaluate, "new_dist", specific_script, symbols_class, symbols_types)
         specific_script.write("\treturn delegate_sequence_activation(sequence_id, duration, cooldown)\n\n")
+        # TODO Override "reset" function to set the symbols/variable in their "default" values.
         # Compute 'can_move' based on "Rules/Controlable".
         specific_script.write("func can_move() -> bool:\n")
         if len(can_move_conditions) == 0:
