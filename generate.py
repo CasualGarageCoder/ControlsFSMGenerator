@@ -9,7 +9,13 @@ from random import randint
 from pprint import pprint
 import getopt
 
+verbose_mode = False
+
 type_to_class = { "bool" : bool, "Timer" : bool, "Control" : int }
+
+def log_verbose(message):
+    if verbose_mode:
+        print(message)
 
 def sort_counters_dict(dictionary):
     return { k : v for k, v in sorted(dictionary.items(), key = lambda a : a[1], reverse = True) }
@@ -161,10 +167,11 @@ def produce_readable_stack(stack):
 
 ######################## CREATE DECISION TREE ################################
 def create_decision_tree(total_rules, symbols_types, config_name, is_debug):
-    print("## Symbols Types")
-    pprint(symbols_types)
-    print("## Rule set")
-    pprint(total_rules)
+    if verbose_mode:
+        print("## Symbols Types")
+        pprint(symbols_types)
+        print("## Rule set")
+        pprint(total_rules)
     # rules = dictionary of rules
     # attributes = all the attributes in the rules with name and types.
     branches = queue.Queue()
@@ -190,11 +197,12 @@ def create_decision_tree(total_rules, symbols_types, config_name, is_debug):
         history = cursor["History"]
         current_rules = retrieve_rules(total_rules, history)
         current_symbols_occurrence = retrieve_symbols(current_rules, history)
-        print("# New Iteration %s" % history)
-        print("## Constrained rule set")
-        pprint(current_rules)
-        print("## Constrained symbol set")
-        pprint(current_symbols_occurrence)
+        if verbose_mode:
+            print("# New Iteration %s" % history)
+            print("## Constrained rule set")
+            pprint(current_rules)
+            print("## Constrained symbol set")
+            pprint(current_symbols_occurrence)
 
         search_attribute = True
         if len(current_rules) == 1: # Leaf
@@ -209,14 +217,14 @@ def create_decision_tree(total_rules, symbols_types, config_name, is_debug):
                     break
             if not meaningful_attributes:
                 cursor["Event"] = list(current_rules.keys())[0]
-                print("## Leaf to '%s'" % cursor["Event"])
+                log_verbose("## Leaf to '%s'" % cursor["Event"])
                 event_count += 1
                 search_attribute = False
             else:
-                print("## Still meaningful attribute '%s'. No leaf." % name)
+                log_verbose("## Still meaningful attribute '%s'. No leaf." % name)
         elif len(current_rules) == 0: # Leaf to prune.
             cursor["Prune"] = True
-            print("## Leaf to prune")
+            log_verbose("## Leaf to prune")
             prune_count += 1
             search_attribute = False
         if search_attribute:
@@ -245,18 +253,20 @@ def create_decision_tree(total_rules, symbols_types, config_name, is_debug):
                     for a in current_rules[c]:
                         if a in candidates and current_rules[c][a] != None:
                             value_per_candidate[a].add(current_rules[c][a])
-                pprint(value_per_candidate)
+                if verbose_mode:
+                    pprint(value_per_candidate)
                 card_per_candidate = dict({ (k, len(v)) for (k, v) in value_per_candidate.items() })
-                sorted_card = sort_counters_dict(card_per_candidate) 
-                print("## Cardinality per candidate")
-                print(sorted_card)
+                sorted_card = sort_counters_dict(card_per_candidate)
+                if verbose_mode:
+                    print("## Cardinality per candidate")
+                    print(sorted_card)
                 choosen_attribute = list(sorted_card.keys())[len(sorted_card) - 1] # Should not be empty.
             else:
                 # Get the first (and only) one
                 choosen_attribute = list(sorted_symbol_count.keys())[0] # Should not be empty.
             # Hence, the cursor is attributed to the choosen_attribute.
             cursor["Attributes"] = choosen_attribute
-            print("## Selected symbol : %s" % choosen_attribute)
+            log_verbose("## Selected symbol : %s" % choosen_attribute)
             # Now, branch.
             cursor["Values"] = {}
             for v in current_symbols_occurrence[choosen_attribute]:
@@ -264,16 +274,18 @@ def create_decision_tree(total_rules, symbols_types, config_name, is_debug):
                 new_history.append({ "Attribute" : choosen_attribute, "Value" : v })
                 new_cursor = { "History" : new_history }
                 cursor["Values"][v] = new_cursor
-                print("### Add branch for attribute '%s' and value '%s'" % (choosen_attribute, v))
+                log_verbose("### Add branch for attribute '%s' and value '%s'" % (choosen_attribute, v))
                 branches.put(new_cursor)
     if event_count == 0:
-        print("!!! Internal Error : No event matched !!!")
-        pprint(decision_tree)
+        if verbose_mode:
+            print("!!! Internal Error : No event matched !!!")
+            pprint(decision_tree)
         sys.exit(1)
     if prune_count > 0:
-        print("!!! %d branches to prune !!!" % prune_count)
+        log_verbose("!!! %d branches to prune !!!" % prune_count)
         # Let's do this.
-        pprint(decision_tree)
+        if verbose_mode:
+            pprint(decision_tree)
         prune = queue.Queue()
         prune.put(decision_tree)
         while not prune.empty():
@@ -303,7 +315,7 @@ def create_decision_tree(total_rules, symbols_types, config_name, is_debug):
     # And now decision tree compression. All those "None" value can be transformed in 'or' statement
     # fallthrough.
     ## First, remove history.
-    print("### Remove History")
+    log_verbose("### Remove History")
     branches.put(decision_tree)
     while not branches.empty():
         cursor = branches.get()
@@ -313,17 +325,17 @@ def create_decision_tree(total_rules, symbols_types, config_name, is_debug):
             for v in cursor["Values"]:
                 branches.put(cursor["Values"][v])
     ## Second, shorten None branching.
-    print("### Remove 'None' thread")
+    log_verbose("### Remove 'None' thread")
     branches.put(decision_tree)
     while not branches.empty():
         cursor = branches.get()
         if "Values" in cursor:
-            print("### %s (%d) (%s)" % (cursor["Values"].keys(), len(cursor["Values"]), None in cursor["Values"]))
+            log_verbose("### %s (%d) (%s)" % (cursor["Values"].keys(), len(cursor["Values"]), None in cursor["Values"]))
         while "Values" in cursor and len(cursor["Values"]) == 1 and None in cursor["Values"]:
-            print("!! Thread removal")
+            log_verbose("!! Thread removal")
             # We can get rid of the intermediate.
             next_entry = cursor["Values"][None]
-            print(next_entry)
+            log_verbose(next_entry)
             if "Event" in next_entry:
                 cursor.clear()
                 cursor["Event"] = next_entry["Event"]
@@ -332,7 +344,7 @@ def create_decision_tree(total_rules, symbols_types, config_name, is_debug):
                 cursor["Values"] = next_entry["Values"]
         if "Values" in cursor:
             for v in cursor["Values"]:
-                print("#### Insert node %s" % v)
+                log_verbose("#### Insert node %s" % v)
                 branches.put(cursor["Values"][v])
 
     if is_debug: # Generate the dot.
@@ -399,16 +411,18 @@ def create_decision_tree(total_rules, symbols_types, config_name, is_debug):
                 cursor["Values"][v]["Flat"] = new_decision["Values"][v]
                 branches.put(cursor["Values"][v])
             if symbols_types[cursor["Attributes"]] == bool and len(new_decision["Values"]) == 2:
-                print("## Sorting boolean values.")
-                print("## %s" % new_decision["Values"].keys())
+                if verbose_mode:
+                    print("## Sorting boolean values.")
+                    print("## %s" % new_decision["Values"].keys())
                 falseValue = new_decision["Values"][False]
                 new_decision["Values"].pop(False)
                 new_decision["Values"][False] = falseValue
             cursor["Flat"].append(new_decision)
         else:
             print("!!! Internal error. Such a node should not exists !!!")
-    print("## Flat Tree :")
-    pprint(flat_tree)
+    if verbose_mode:
+        print("## Flat Tree :")
+        pprint(flat_tree)
 
     with open("build/decision_tree_%s.gd" % config_name, "w") as out_gd:
         ## Try to generate code
@@ -417,18 +431,19 @@ def create_decision_tree(total_rules, symbols_types, config_name, is_debug):
         stack.append({ "Node" : flat_tree, "Statement" : 0, "Value" : 0 })
         specific_identifier = config_name.upper()
         while len(stack) > 0:
-            print("## --------------------------")
-            print(produce_readable_stack(stack))
-            print("### -------------------------")
+            if verbose_mode:
+                print("## --------------------------")
+                print(produce_readable_stack(stack))
+                print("### -------------------------")
             cursor = stack.pop()
             node = cursor["Node"]
             statement_id = cursor["Statement"]
             value = cursor["Value"]
             if statement_id == len(node):
                 if len(stack) == 0:
-                    print("## Break because end of main statement list")
+                    log_verbose("## Break because end of main statement list")
                     break
-                print("## Discard because of end of statements reached")
+                log_verbose("## Discard because of end of statements reached")
                 cursor = stack.pop()
                 cursor["Value"] += 1
                 stack.append(cursor)
@@ -446,7 +461,7 @@ def create_decision_tree(total_rules, symbols_types, config_name, is_debug):
                     cursor["Value"] = 0
                     cursor["Statement"] += 1
                     stack.append(cursor)
-                    print("### Discard because of end of values reached")
+                    log_verbose("### Discard because of end of values reached")
                     continue
                 if value == 0:
                     # So, we begin with a new attributes.
@@ -578,9 +593,9 @@ def generate_specific(config_filepath, controls, common_symbols, generate_debug)
             cursor_node["Duration"] = s["Duration"]
             cursor_node["Cooldown"] = s["Cooldown"]
 
-
-    print("## The sequence tree has been correctly defined has follow")
-    pprint(sequences_tree)
+    if verbose_mode:
+        print("## The sequence tree has been correctly defined has follow")
+        pprint(sequences_tree)
 
     # THE important dictionary.
     states = {}
@@ -608,8 +623,9 @@ def generate_specific(config_filepath, controls, common_symbols, generate_debug)
 
     while not state_seeds.empty():
         current_state = state_seeds.get()
-        print("-------------")
-        print("Expand '%s' state" % current_state)
+        if verbose_mode:
+            print("-------------")
+            print("Expand '%s' state" % current_state)
 
         ## Timeout management.
         ## It is actually pretty easy as we only have one timer.
@@ -634,7 +650,7 @@ def generate_specific(config_filepath, controls, common_symbols, generate_debug)
                 state_seeds.put(target_name)
 
         ## Controls management.
-        print("-? Controls order : %s" % states[current_state]["Pressed"])
+        log_verbose("-? Controls order : %s" % states[current_state]["Pressed"])
         current_state_controls = states[current_state]["Controls"]
         # We can change only one control at a time
         for c in controls:
@@ -642,7 +658,7 @@ def generate_specific(config_filepath, controls, common_symbols, generate_debug)
             trigger["Control"] = c
             new_controls = current_state_controls.copy()
             new_controls[c] = not current_state_controls[c]
-            print("- Control %s=%s" % (c, new_controls[c]))
+            log_verbose("- Control %s=%s" % (c, new_controls[c]))
             control_order = states[current_state]["Pressed"].copy()
             if new_controls[c]:
                 control_order.append(c)
@@ -679,15 +695,15 @@ def generate_specific(config_filepath, controls, common_symbols, generate_debug)
             name_controls = []
             toinsert_controls = new_controls.copy()
             # First, ordered controls
-            print("-- New controls : %s" % new_controls)
+            log_verbose("-- New controls : %s" % new_controls)
             for k in states[current_state]["Pressed"]:
                 if k in order_matters and current_state_controls[k] and new_controls[k]:
-                    print("-- Add %s" % k)
+                    log_verbose("-- Add %s" % k)
                     name_controls.append(k)
                     toinsert_controls.pop(k)
             for k in toinsert_controls:
                 if new_controls[k]:
-                    print("-+ Add %s" % k)
+                    log_verbose("-+ Add %s" % k)
                     name_controls.append(k)
             tokens = name_controls.copy()
             new_name = "_".join(tokens)
@@ -708,11 +724,11 @@ def generate_specific(config_filepath, controls, common_symbols, generate_debug)
                         "Sequence" : new_sequence,
                         "Progress" : new_progress
                         }
-                print("--+ Add '%s' state" % new_name)
-                print("--+ With control order %s" % control_order)
+                log_verbose("--+ Add '%s' state" % new_name)
+                log_verbose("--+ With control order %s" % control_order)
                 state_seeds.put(new_name)
             else:
-                print("--! Existing state or start state '%s'" % new_name)
+                log_verbose("--! Existing state or start state '%s'" % new_name)
 
             found = False
             for i in states[current_state]["Transitions"]:
@@ -720,9 +736,9 @@ def generate_specific(config_filepath, controls, common_symbols, generate_debug)
             if not found:
                 states[current_state]["Transitions"].append(trigger)
 
-    print("--- End of Computation ---")
-
-    print("There is %d states" % len(states))
+    if verbose_mode:
+        print("--- End of Computation ---")
+        print("There is %d states" % len(states))
 
     sequences_list = sequences["List"]
     sequences_id = {}
@@ -998,6 +1014,7 @@ def generate_main_constants(controls, common_symbols):
 ## Main ##
 
 def main():
+    global verbose_mode
     global_filepath = ""
     specific_filepaths = []
     generate_debug = False
@@ -1011,7 +1028,7 @@ def main():
             sys.exit(1)
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:],"dg:s:")
+        opts, args = getopt.getopt(sys.argv[1:],"vdg:s:")
     except getopt.GetoptError:
         print("%s -d -g [path_to_global_conf.json] -s [path_to_first_specific.json] -s ..." % sys.argv[0])
         sys_exit(1)
@@ -1020,6 +1037,9 @@ def main():
             global_filepath = arg
         elif opt == "-s":
             specific_filepaths.append(arg)
+        elif opt == "-v":
+            print("## Activate Verbose Mode")
+            verbose_mode = True
         elif opt == "-d":
             try:
                 os.mkdir("build/debug")
