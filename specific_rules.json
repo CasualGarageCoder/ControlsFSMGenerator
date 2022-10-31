@@ -26,7 +26,8 @@
             },
             {
                 "Name" : "attacking",
-                "Type" : "bool"
+                "Type" : "bool",
+                "Default" : "false"
             }
         ],
         "Controlable" : {

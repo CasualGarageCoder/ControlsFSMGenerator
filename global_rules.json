@@ -15,7 +15,7 @@
         {
             "Name" : "attacked",
             "Type" : "bool",
-            "Default" : "False"
+            "Default" : "false"
         },
         {
             "Name" : "dying",
@@ -24,7 +24,8 @@
         },
         {
             "Name" : "direction",
-            "Type" : "Control"
+            "Type" : "Control",
+            "Default" : "LEFT"
         }
     ]
 }

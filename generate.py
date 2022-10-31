@@ -895,7 +895,13 @@ def generate_specific(config_filepath, controls, common_symbols, generate_debug)
         # All symbols
         for s in symbols:
             if not s["Type"] == "Timer":
-                specific_script.write("var %s_v : %s\n" % (s["Name"], symbols_class[s["Name"]].__name__))
+                # Compute default value.
+                default_value = None
+                if s["Type"] == "Control":
+                    default_value = control_id[s["Default"]]
+                else:
+                    default_value = s["Default"]
+                specific_script.write("var %s_v : %s = %s\n" % (s["Name"], symbols_class[s["Name"]].__name__, default_value))
         specific_script.write("\nfunc _ready():\n")
         # Add local timers
         for s in symbols:
@@ -963,7 +969,18 @@ def generate_specific(config_filepath, controls, common_symbols, generate_debug)
                     specific_script.write("\t\t\tif i == self:\n\t\t\t\tcontinue\n\t\t\tinvoke = false\n")
                     evalutate_symbols("\t\t\t", symbols_to_evaluate, "new_dist", specific_script, symbols_class, symbols_types, True, "i.")
         specific_script.write("\treturn delegate_sequence_activation(sequence_id, duration, cooldown)\n\n")
-        # TODO Override "reset" function to set the symbols/variable in their "default" values.
+        # Override "reset" function to set the symbols/variable in their "default" values.
+        specific_script.write("func reset() -> void\n")
+        for s in symbols:
+            if not s["Type"] == "Timer":
+                # Compute default value.
+                default_value = None
+                if s["Type"] == "Control":
+                    default_value = control_id[s["Default"]]
+                else:
+                    default_value = s["Default"]
+                specific_script.write("\t%s_v = %s\n" % (s["Name"], default_value))
+        specific_script.write("\t.reset()\n\n")
         # Compute 'can_move' based on "Rules/Controlable".
         specific_script.write("func can_move() -> bool:\n")
         if len(can_move_conditions) == 0:
