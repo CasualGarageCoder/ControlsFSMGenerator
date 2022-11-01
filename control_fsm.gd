@@ -40,6 +40,15 @@ onready var current_time : int = 0
 # Keep starting state ID.
 onready var starting_state : int
 
+# Last control that was pressed. Can be 0 if a control as been released.
+onready var last_pressed_control : int
+
+# Timestamp of last control pressed.
+onready var last_control_pressed : Array
+
+# Timestamp of last control released.
+onready var last_control_released : Array
+
 ## Initialisation. Read the JSON, collect and compute useful data.
 func _ready():
 	set_process(false)
@@ -54,6 +63,8 @@ func _ready():
 		var control_count = json_content["ControlCount"]
 		for _i in range(control_count + 1):
 			current_control.append(false)
+			last_control_pressed.append(-1)
+			last_control_released.append(-1)
 		var json_sequences : Array = json_content["Sequences"]
 		var seq_count : int = json_sequences.size()
 		for i in range(seq_count):
@@ -92,6 +103,9 @@ func _ready():
 				if "Timer" in i:
 					state.timer_reset[i["Control"]].append(seq_count * 2)
 			states.append(state)
+	else:
+		print("Unable to load file %s" % descriptor_filename)
+		get_tree().quit(-1)
 	set_process(true)
 
 # Reset the state machine.
@@ -102,6 +116,9 @@ func reset() -> void:
 		timer_expire[t] = -1
 	for t in range(len(current_control)):
 		current_control[t] = false
+		last_control_pressed[t] = -1
+		last_control_pressed[t] = -1
+	last_pressed_control = 0
 	set_process(true)
 
 # Entry point : Set the current control change.
@@ -109,6 +126,13 @@ func set_move(control : int, pressed : bool) -> void:
 	var filtered_control : int = filter_control(control, pressed)
 	var last_value : bool = current_control[filtered_control]
 	current_control[filtered_control] = pressed
+	if pressed:
+		last_pressed_control = filtered_control
+		last_control_pressed[filtered_control] = current_time
+	else:
+		last_pressed_control = 0
+		last_control_released[filtered_control] = current_time
+
 	if can_move() && (last_value != pressed):
 		for timer in states[current_state].timer_reset[filtered_control]:
 			timer_expire[timer] = current_time + timer_timeout[timer]
