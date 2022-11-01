@@ -27,5 +27,17 @@
             "Type" : "Control",
             "Default" : "LEFT"
         }
-    ]
+    ],
+    "Signals" : {
+        "animate" : {
+            "animation_name" : "String",
+            "override" : "bool"
+        },
+        "attack" : {
+            "collider" : "*",
+            "target" : "*",
+            "direction" : "Control"
+        }
+    },
+    "Groups" : [ "Players" ]
 }

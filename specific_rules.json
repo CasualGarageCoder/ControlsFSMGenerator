@@ -37,91 +37,152 @@
         },
         "Events" : {
             "jump_left" : {
-                "lastKey" : "LEFT",
-                "goingUp" : true
+                "Conditions" : {
+                    "lastKey" : "LEFT",
+                    "goingUp" : true
+                }
             },
             "jump_right" : {
-                "lastKey" : "RIGHT",
-                "goingUp" : true
+                "Conditions" : {
+                    "lastKey" : "RIGHT",
+                    "goingUp" : true
+                }
             },
             "descent_left" : {
-                "lastKey" : "LEFT",
-                "goingUp" : false,
-                "onGround" : false
+                "Conditions": {
+                    "lastKey" : "LEFT",
+                    "goingUp" : false,
+                    "onGround" : false
+                }
             },
             "descent_right" : {
-                "lastKey" : "RIGHT",
-                "goingUp" : false,
-                "onGround" : false
+                "Conditions" : {
+                    "lastKey" : "RIGHT",
+                    "goingUp" : false,
+                    "onGround" : false
+                }
             },
             "idle_right" : {
-                "lastKey" : "RIGHT",
-                "onGround" : true,
-                "moving" : false
+                "Conditions" : {
+                    "lastKey" : "RIGHT",
+                    "onGround" : true,
+                    "moving" : false
+                }
             },
             "idle_left" : {
-                "lastKey" : "LEFT",
-                "onGround" : true,
-                "moving" : false
+                "Conditions" : {
+                    "lastKey" : "LEFT",
+                    "onGround" : true,
+                    "moving" : false
+                }
             },
             "run_right" : {
-                "lastKey" : "RIGHT",
-                "onGround" : true,
-                "moving" : true
+                "Conditions" : {
+                    "lastKey" : "RIGHT",
+                    "onGround" : true,
+                    "moving" : true
+                }
             },
             "run_left" : {
-                "lastKey" : "LEFT",
-                "onGround" : true,
-                "moving" : true
+                "Conditions" : {
+                    "lastKey" : "LEFT",
+                    "onGround" : true,
+                    "moving" : true
+                }
             },
             "attack_right" : {
-                "lastKey" : "RIGHT",
-                "attacking" : true
+                "Conditions" : {
+                    "lastKey" : "RIGHT",
+                    "attacking" : true
+                },
+                "Effects" : {
+                    "Timers" : {
+                        "Self" : {
+                            "invulnerable" : "reset"
+                        },
+                        "Distribute" : {
+                            "Players" : {
+                                "stun" : "apply"
+                            }
+                        }
+                    },
+                    "Signals" : {
+                        "animate" : {
+                            "animation_name" : "attack_right",
+                            "override" : true
+                        },
+                        "attack" : {
+                            "target" : "get_target",
+                            "collider" : "get_collider",
+                            "direction" : "RIGHT"
+                        }
+                    }
+                }
             },
             "attack_left" : {
-                "lastKey" : "LEFT",
-                "attacking" : true
+                "Conditions" : {
+                    "lastKey" : "LEFT",
+                    "attacking" : true
+                }
             },
             "attacked_right" : {
-                "lastKey" : "RIGHT",
-                "attacked" : true,
-                "dying" : false
+                "Conditions" : {
+                    "lastKey" : "RIGHT",
+                    "attacked" : true,
+                    "dying" : false
+                }
             },
             "attacked_left" : {
-                "lastKey" : "LEFT",
-                "attacked" : true,
-                "dying": false
+                "Conditions" : {
+                    "lastKey" : "LEFT",
+                    "attacked" : true,
+                    "dying": false
+                }
             },
             "dying_right" : {
-                "lastKey" : "RIGHT",
-                "attacked" : true,
-                "dying" : true
+                "Conditions" : {
+                    "lastKey" : "RIGHT",
+                    "attacked" : true,
+                    "dying" : true
+                }
             },
             "dying_left" : {
-                "lastKey" : "LEFT",
-                "attacked" : true,
-                "dying" : true
+                "Conditions" : {
+                    "lastKey" : "LEFT",
+                    "attacked" : true,
+                    "dying" : true
+                }
             },
             "stunned_left" : {
-                "direction" : "LEFT",
-                "stun" : true
+                "Conditions" : {
+                    "direction" : "LEFT",
+                    "stun" : true
+                }
             },
             "stunned_right" : {
-                "direction" : "RIGHT",
-                "stun" : true
+                "Conditions" : {
+                    "direction" : "RIGHT",
+                    "stun" : true
+                }
             }
         },
         "Trigger" : {
-            "UP" : {
-                "onPress" : [ "goingUp", "onGround" ]
+            "Controls" : {
+                "UP" : {
+                    "onPress" : [ "goingUp", "onGround" ]
+                },
+                "LEFT" : {
+                    "onPress" : [ "lastKey", "moving", "attacking" ],
+                    "onRelease" : [ "lastKey", "moving" ]
+                },
+                "RIGHT" : {
+                    "onPress" : [ "lastKey", "moving", "attacking" ],
+                    "onRelease" : [ "lastKey", "moving" ]
+                }
             },
-            "LEFT" : {
-                "onPress" : [ "lastKey", "moving", "attacking" ],
-                "onRelease" : [ "lastKey", "moving" ]
-            },
-            "RIGHT" : {
-                "onPress" : [ "lastKey", "moving", "attacking" ],
-                "onRelease" : [ "lastKey", "moving" ]
+            "Timers" : {
+                "dying" : [ ],
+                "stun" : [ "onGround" ]
             }
         },
         "Frame" : [ "onGround", "goingUp", "direction" ],

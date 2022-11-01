@@ -172,8 +172,8 @@ func _process(delta : float):
 	delegate_process()
 
 # Trigger a timer
-func trigger_timer(timer : int) -> bool:
-	if current_time < timer_expire[timer]:
+func trigger_timer(timer : int, override : bool = false) -> bool:
+	if current_time < timer_expire[timer] and !override:
 		return false
 	timer_expire[timer] = current_time + timer_timeout[timer]
 	return true

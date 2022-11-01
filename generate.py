@@ -37,6 +37,14 @@ def evalutate_symbols(prefix, symbols, temp_name, specific_script, symbols_class
     if print_invoke:
         specific_script.write("%sif invoke:\n%s\t%sinvoke_decision_tree()\n\n" % (prefix, prefix, evaluate_prefix))
 
+def trigger_timers(out_gd, level, triggers, prefix = ""):
+    for t in triggers:
+        trigger_name = "%s_TIMER" % t.upper()
+        if "reset" == triggers[t]:
+            write_indent(out_gd, level, "%strigger_timer(%s, true)" % (prefix, trigger_name))
+        else:
+            write_indent(out_gd, level, "%strigger_timer(%s)" % (prefix, trigger_name))
+
 
 # current_rules : Rules that are still to evaluate.
 # attr : array with names of attribute to evaluate.
@@ -45,15 +53,15 @@ def compute_attributes_values(current_rules, attr):
     set_of_values = dict((k, []) for k in attr)
     for c in current_rules:
         for a in attr:
-            if not current_rules[c][a] in set_of_values[a]:
-                set_of_values[a].append(current_rules[c][a])
+            if not current_rules[c]["Conditions"][a] in set_of_values[a]:
+                set_of_values[a].append(current_rules[c]["Conditions"][a])
     return set_of_values
 
 def compute_attributes_from_rules(current_rules):
     attributes = []
     for c in current_rules:
-        for a in current_rules[c]:
-            if current_rules[c][a] != None:
+        for a in current_rules[c]["Conditions"]:
+            if current_rules[c]["Conditions"][a] != None:
                 attributes.append(a)
     return set(attributes)
 
@@ -76,7 +84,7 @@ def compute_rules_sorted_by_attribute_values(current_rules, possible_attr_values
             result[attr][v] = []
             for r in current_rules:
                 rule = current_rules[r]
-                if attr in rule and rule[attr] == v:
+                if attr in rule["Conditions"] and rule["Conditions"][attr] == v:
                     result[attr][v].append(r)
     return result
 
@@ -84,7 +92,7 @@ def compute_rules_sorted_by_attribute_values(current_rules, possible_attr_values
 def retrieve_rules(current_rules, attributes_values):
     result = {}
     for rule in current_rules:
-        condition = current_rules[rule]
+        condition = current_rules[rule]["Conditions"]
         compatible = True
         for a in attributes_values:
             attribute_name = a["Attribute"]
@@ -124,14 +132,14 @@ def is_in_history(attr, history):
 def retrieve_symbols(current_rules, history):
     symbols = {}
     for c in current_rules:
-        for a in current_rules[c]:
+        for a in current_rules[c]["Conditions"]:
             if is_in_history(a, history):
                 continue
             if not a in symbols:
                 symbols[a] = []
                 symbols[a].append(None)
-            if not current_rules[c][a] in symbols[a]:
-                symbols[a].append(current_rules[c][a])
+            if not current_rules[c]["Conditions"][a] in symbols[a]:
+                symbols[a].append(current_rules[c]["Conditions"][a])
     return symbols
 
 # Write in a file with identation.
@@ -166,7 +174,7 @@ def produce_readable_stack(stack):
     return result
 
 ######################## CREATE DECISION TREE ################################
-def create_decision_tree(total_rules, symbols_types, config_name, is_debug):
+def create_decision_tree(total_rules, symbols_types, config_name, common_signals, control_id, is_debug):
     if verbose_mode:
         print("## Symbols Types")
         pprint(symbols_types)
@@ -231,8 +239,8 @@ def create_decision_tree(total_rules, symbols_types, config_name, is_debug):
             # Elect the symbols with most occurences.
             symbol_count = {}
             for c in current_rules:
-                for a in current_rules[c]:
-                    if is_in_history(a, cursor["History"]) or current_rules[c][a] == None:
+                for a in current_rules[c]["Conditions"]:
+                    if is_in_history(a, cursor["History"]) or current_rules[c]["Conditions"][a] == None:
                         continue
                     if not a in symbol_count:
                         symbol_count[a] = 1
@@ -250,9 +258,9 @@ def create_decision_tree(total_rules, symbols_types, config_name, is_debug):
                 for candidate in candidates:
                     value_per_candidate[candidate] = set()
                 for c in current_rules:
-                    for a in current_rules[c]:
-                        if a in candidates and current_rules[c][a] != None:
-                            value_per_candidate[a].add(current_rules[c][a])
+                    for a in current_rules[c]["Conditions"]:
+                        if a in candidates and current_rules[c]["Conditions"][a] != None:
+                            value_per_candidate[a].add(current_rules[c]["Conditions"][a])
                 if verbose_mode:
                     pprint(value_per_candidate)
                 card_per_candidate = dict({ (k, len(v)) for (k, v) in value_per_candidate.items() })
@@ -450,7 +458,45 @@ def create_decision_tree(total_rules, symbols_types, config_name, is_debug):
                 continue
             statement = node[statement_id]
             if "Event" in statement:
-                identifier = "EVENT_%s" % statement["Event"].upper()
+                event_name = statement["Event"]
+                # Apply effects in any.
+                if "Effects" in total_rules[event_name]:
+                    effects = total_rules[event_name]["Effects"]
+                    # Launch signal if any.
+                    if "Signals" in effects and len(effects["Signals"]) > 0:
+                        for s in effects["Signals"]:
+                            signal_arguments = effects["Signals"][s]
+                            # Retrieve arguments.
+                            arguments_declaration = list(common_signals[s].keys())
+                            arguments_list = [ "\"%s\"" % (s) ]
+                            for a in arguments_declaration:
+                                raw_value = signal_arguments[a]
+                                raw_type = common_signals[s][a]
+                                if raw_type == "*":
+                                    arguments_list.append("%s()" % (raw_value))
+                                elif raw_type == "Control":
+                                    arguments_list.append("%d" % (control_id[raw_value]))
+                                elif raw_type == "bool":
+                                    arguments_list.append("true" if raw_value else "false")
+                                else:
+                                    arguments_list.append("\"%s\"" % raw_value)
+                            write_indent(out_gd, len(stack), "emit_signal(%s)" % (", ".join(arguments_list)))
+                    # Launch timers if any.
+                    if "Timers" in effects and len(effects["Timers"]) > 0:
+                        timer_triggers = effects["Timers"]
+                        if "Self" in timer_triggers:
+                            self_triggers = timer_triggers["Self"]
+                            trigger_timers(out_gd, len(stack), self_triggers)
+                        if "Distribute" in timer_triggers:
+                            distribute_triggers = timer_triggers["Distribute"]
+                            for grp in distribute_triggers:
+                                group_name = grp.lower()
+                                write_indent(out_gd, len(stack), "for i in get_tree().get_nodes_in_group(\"%s\"):" % grp)
+                                write_indent(out_gd, len(stack) + 1, "if i == controlled_node_%s:" % group_name)
+                                write_indent(out_gd, len(stack) + 2, "continue")
+                                trigger_timers(out_gd, len(stack) + 1, distribute_triggers[grp], "i.")
+                # Trigger event.
+                identifier = "EVENT_%s" % event_name.upper()
                 write_indent(out_gd, len(stack), "trigger(%s)" % identifier)
                 cursor = stack.pop()
                 cursor["Value"] += 1
@@ -489,7 +535,7 @@ def create_decision_tree(total_rules, symbols_types, config_name, is_debug):
 
 ######################## END OF CREATE DECISION TREE ############################
 
-def generate_specific(config_filepath, controls, common_symbols, generate_debug):
+def generate_specific(config_filepath, controls, common_symbols, common_signals, common_groups, generate_debug):
     control_id = {}
     for i in range(len(controls)):
         control_id[controls[i]] = i+1
@@ -538,7 +584,7 @@ def generate_specific(config_filepath, controls, common_symbols, generate_debug)
     # Using the events, build the decision tree.
     ## First, verify that the symbols of the conditions exist.
     for event in events:
-        event_conditions = events[event]
+        event_conditions = events[event]["Conditions"]
         for condition_symbol in event_conditions:
             # Existence check
             if not condition_symbol in symbols_types:
@@ -552,16 +598,18 @@ def generate_specific(config_filepath, controls, common_symbols, generate_debug)
                 print("!!! In event '%s', condition symbol '%s' type mismatch !!!" % (event, condition_symbol))
                 sys.exit(1)
 
+    ## TODO Verify "Effects" validity too.
+
     ## Change the Control type to 'int'.
     for event in events:
-        for attr in events[event]:
-            if symbols_types[attr] == "Control" and events[event][attr] != None:
-                events[event][attr] = control_id[events[event][attr]]
+        for attr in events[event]["Conditions"]:
+            if symbols_types[attr] == "Control" and events[event]["Conditions"][attr] != None:
+                events[event]["Conditions"][attr] = control_id[events[event]["Conditions"][attr]]
     ## Complete rules with "None".
     for event in events:
         for attr in symbols_types:
-            if not attr in events[event]:
-                events[event][attr] = None
+            if not attr in events[event]["Conditions"]:
+                events[event]["Conditions"][attr] = None
 
     ## Create the symbol->type mapping
     symbols_class = dict((k, type_to_class[v]) for (k, v) in symbols_types.items())
@@ -866,7 +914,7 @@ def generate_specific(config_filepath, controls, common_symbols, generate_debug)
 
     # And finally, generate decision tree to generate the specific script.
     # We got all we need. The symbols, the triggers, the timers.
-    decision_tree = create_decision_tree(events, symbols_class, config_name, generate_debug)
+    decision_tree = create_decision_tree(events, symbols_class, config_name, common_signals, control_id, generate_debug)
     print("## Generated Decision Tree")
 
     # Find missing events.
@@ -892,6 +940,18 @@ def generate_specific(config_filepath, controls, common_symbols, generate_debug)
     uconf_name = config_name.upper()
     with open(script_path, "a") as specific_script:
         specific_script.write("\n\n")
+        # All signals
+        for s in common_signals:
+            attributes = ", ".join(list(common_signals[s].keys()))
+            specific_script.write("signal %s(%s)\n" % (s, attributes))
+        specific_script.write("\n")
+        # All exported nodepath
+        for g in common_groups:
+            specific_script.write("export (NodePath) controlled_nodepath_%s : NodePath\n" % (g.lower()))
+        specific_script.write("\n")
+        for g in common_groups:
+            specific_script.write("onready var controlled_node_%s\n" % (g.lower()))
+        specific_script.write("\n")
         # All symbols
         for s in symbols:
             if not s["Type"] == "Timer":
@@ -903,6 +963,13 @@ def generate_specific(config_filepath, controls, common_symbols, generate_debug)
                     default_value = s["Default"]
                 specific_script.write("var %s_v : %s = %s\n" % (s["Name"], symbols_class[s["Name"]].__name__, default_value))
         specific_script.write("\nfunc _ready():\n")
+        # Add controlled nodes
+        for g in common_groups:
+            group_name = g.lower()
+            specific_script.write("\tif controlled_nodepath_%s != null:\n" % (group_name))
+            specific_script.write("\t\tcontrolled_node_%s = get_node(controlled_nodepath_%s)\n" % (group_name, group_name))
+            specific_script.write("\telse:\n\t\tcontrolled_node_%s = null\n" % (group_name))
+        specific_script.write("\n")
         # Add local timers
         for s in symbols:
             if s["Type"] == "Timer":
@@ -966,7 +1033,7 @@ def generate_specific(config_filepath, controls, common_symbols, generate_debug)
                 for target in seq["Distribute"]:
                     symbols_to_evaluate = seq["Distribute"][target]
                     specific_script.write("\t\tfor i in get_tree().get_nodes_in_group(\"%s\"):\n" % target)
-                    specific_script.write("\t\t\tif i == self:\n\t\t\t\tcontinue\n\t\t\tinvoke = false\n")
+                    specific_script.write("\t\t\tif i == controlled_node_%s:\n\t\t\t\tcontinue\n\t\t\tinvoke = false\n" % (target.lower()))
                     evalutate_symbols("\t\t\t", symbols_to_evaluate, "new_dist", specific_script, symbols_class, symbols_types, True, "i.")
         specific_script.write("\treturn delegate_sequence_activation(sequence_id, duration, cooldown)\n\n")
         # Override "reset" function to set the symbols/variable in their "default" values.
@@ -1068,18 +1135,22 @@ def main():
 
     controls = []
     common_symbols = []
+    common_signals = {}
+    common_groups = []
 
     with open(global_filepath, "r") as config_file:
         configuration = json.load(config_file)
         config_file.close()
         controls = configuration["Controls"]
         common_symbols = configuration["Symbols"]
+        common_signals = configuration["Signals"]
+        common_groups = configuration["Groups"]
 
     generate_main_constants(controls, common_symbols)
 
     for filepath in specific_filepaths:
         print("Read '%s'" % filepath)
-        generate_specific(filepath, controls, common_symbols, generate_debug)
+        generate_specific(filepath, controls, common_symbols, common_signals, common_groups, generate_debug)
 
 if __name__ == "__main__":
     main()
