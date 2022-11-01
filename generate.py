@@ -1059,15 +1059,17 @@ def generate_specific(config_filepath, controls, common_symbols, common_signals,
             specific_script.write("\treturn %s\n\n" % condition_string)
         # Timer expiration
         specific_script.write("func on_timer_expire(timer : int) -> void:\n\tvar invoke : bool = false\n")
-        timer_expirations = control_triggered_symbols["Timers"]
-        for timer in timer_expirations:
-            evaluation_group = timer_expirations[timer]
-            specific_script.write("\tif timer == %s_TIMER:\n" % timer.upper())
-            if len(evaluation_group) == 0:
-                specific_script.write("\t\tinvoke = true\n\n")
-            else:
-                evaluate_symbols("\t\t", evaluation_group, "temp", specific_script, symbols_class, symbols_types, False)
-        specific_script.write("\n\tif invoke:\n\t\tinvoke_decision_tree()\n\n\ton_timer_delegate(timer)\n\n")
+        if "Timers" in control_triggered_symbols:
+            timer_expirations = control_triggered_symbols["Timers"]
+            for timer in timer_expirations:
+                evaluation_group = timer_expirations[timer]
+                specific_script.write("\tif timer == %s_TIMER:\n" % timer.upper())
+                if len(evaluation_group) == 0:
+                    specific_script.write("\t\tinvoke = true\n\n")
+                else:
+                    evaluate_symbols("\t\t", evaluation_group, "temp", specific_script, symbols_class, symbols_types, False)
+            specific_script.write("\n\tif invoke:\n\t\tinvoke_decision_tree()\n\n")
+        specific_script.write("\ton_timer_delegate(timer)\n\n")
         # Finish with filled-by-user functions.
         specific_script.write("func on_timer_delegate(timer : int) -> void:\n\tpass\n\n")
         specific_script.write("func delegate_sequence_activation(sequence_id : int, duration : int, cooldown : int) -> bool:\n")
