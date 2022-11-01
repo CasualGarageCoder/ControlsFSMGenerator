@@ -26,7 +26,7 @@ def find_symbol(t, symb):
             return True
     return False
 
-def evalutate_symbols(prefix, symbols, temp_name, specific_script, symbols_class, symbols_types, print_invoke = True, evaluate_prefix = ""):
+def evaluate_symbols(prefix, symbols, temp_name, specific_script, symbols_class, symbols_types, print_invoke = True, evaluate_prefix = ""):
     for s in symbols:
         if symbols_types[s] == "Timer":
             specific_script.write("%sinvoke = invoke || %sevaluate_%s()\n" % (prefix, evaluate_prefix, s))
@@ -995,7 +995,7 @@ def generate_specific(config_filepath, controls, common_symbols, common_signals,
         os.remove(decision_tree_path)
         # Delegate process : Manage per-frame trigger
         specific_script.write("\nfunc delegate_process() -> void:\n\tvar invoke : bool = false\n")
-        evalutate_symbols("\t", process_triggered_symbols, "new", specific_script, symbols_class, symbols_types)
+        evaluate_symbols("\t", process_triggered_symbols, "new", specific_script, symbols_class, symbols_types)
         # Delegate process : Manage on control trigger.
         specific_script.write("func process_move(control : int, pressed : bool) -> void:\n\tvar invoke : bool = false\n")
         # Disable move control using conditions in Rules/Controlable.
@@ -1004,14 +1004,14 @@ def generate_specific(config_filepath, controls, common_symbols, common_signals,
             press_list = control_triggered_symbols["Controls"][t]["onPress"] if "onPress" in control_triggered_symbols["Controls"][t] else []
             if len(press_list) > 0:
                 specific_script.write("\t\tif pressed:\n")
-                evalutate_symbols("\t\t\t", press_list, "temp", specific_script, symbols_class, symbols_types, False)
+                evaluate_symbols("\t\t\t", press_list, "temp", specific_script, symbols_class, symbols_types, False)
             unpressed_list = control_triggered_symbols["Controls"][t]["onRelease"] if "onRelease" in control_triggered_symbols["Controls"][t] else []
             if len(unpressed_list) > 0:
                 if len(press_list) > 0:
                     specific_script.write("\t\telse:\n")
                 else:
                     specific_script.write("\t\tif not pressed:\n")
-                evalutate_symbols("\t\t\t", unpressed_list, "temp", specific_script, symbols_class, symbols_types, False)
+                evaluate_symbols("\t\t\t", unpressed_list, "temp", specific_script, symbols_class, symbols_types, False)
         specific_script.write("\n\n\tif invoke:\n\t\tinvoke_decision_tree()\n\n")
         # Triggering on sequence activation
         specific_script.write("func activate_sequence(sequence_id : int, duration : int, cooldown : int) -> bool:\n")
@@ -1028,13 +1028,13 @@ def generate_specific(config_filepath, controls, common_symbols, common_signals,
             if "Self" in seq:
                 symbols_to_evaluate = seq["Self"]
                 specific_script.write("\t\tinvoke = false\n")
-                evalutate_symbols("\t\t", symbols_to_evaluate, "new", specific_script, symbols_class, symbols_types)
+                evaluate_symbols("\t\t", symbols_to_evaluate, "new", specific_script, symbols_class, symbols_types)
             if "Distribute" in seq:
                 for target in seq["Distribute"]:
                     symbols_to_evaluate = seq["Distribute"][target]
                     specific_script.write("\t\tfor i in get_tree().get_nodes_in_group(\"%s\"):\n" % target)
                     specific_script.write("\t\t\tif i == controlled_node_%s:\n\t\t\t\tcontinue\n\t\t\tinvoke = false\n" % (target.lower()))
-                    evalutate_symbols("\t\t\t", symbols_to_evaluate, "new_dist", specific_script, symbols_class, symbols_types, True, "i.")
+                    evaluate_symbols("\t\t\t", symbols_to_evaluate, "new_dist", specific_script, symbols_class, symbols_types, True, "i.")
         specific_script.write("\treturn delegate_sequence_activation(sequence_id, duration, cooldown)\n\n")
         # Override "reset" function to set the symbols/variable in their "default" values.
         specific_script.write("func reset() -> void:\n")
@@ -1058,11 +1058,15 @@ def generate_specific(config_filepath, controls, common_symbols, common_signals,
             condition_string = " && ".join(condition_tokens)
             specific_script.write("\treturn %s\n\n" % condition_string)
         # Timer expiration
-        specific_script.write("func on_timer_expire(timer : int) -> void:\n")
-        specific_script.write("\tvar invoke : bool = false\n")
-        for s in symbols:
-            if s["Type"] == "Timer":
-                specific_script.write("\tinvoke = invoke || (timer == %s_TIMER)\n" % (s["Name"].upper()))
+        specific_script.write("func on_timer_expire(timer : int) -> void:\n\tvar invoke : bool = false\n")
+        timer_expirations = control_triggered_symbols["Timers"]
+        for timer in timer_expirations:
+            evaluation_group = timer_expirations[timer]
+            specific_script.write("\tif timer == %s_TIMER:\n" % timer.upper())
+            if len(evaluation_group) == 0:
+                specific_script.write("\t\tinvoke = true\n\n")
+            else:
+                evaluate_symbols("\t\t", evaluation_group, "temp", specific_script, symbols_class, symbols_types, False)
         specific_script.write("\n\tif invoke:\n\t\tinvoke_decision_tree()\n\n\ton_timer_delegate(timer)\n\n")
         # Finish with filled-by-user functions.
         specific_script.write("func on_timer_delegate(timer : int) -> void:\n\tpass\n\n")
