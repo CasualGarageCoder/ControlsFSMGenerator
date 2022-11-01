@@ -947,7 +947,7 @@ def generate_specific(config_filepath, controls, common_symbols, common_signals,
         specific_script.write("\n")
         # All exported nodepath
         for g in common_groups:
-            specific_script.write("export (NodePath) controlled_nodepath_%s : NodePath\n" % (g.lower()))
+            specific_script.write("export (NodePath) var controlled_nodepath_%s : NodePath\n" % (g.lower()))
         specific_script.write("\n")
         for g in common_groups:
             specific_script.write("onready var controlled_node_%s\n" % (g.lower()))
