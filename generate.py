@@ -1086,8 +1086,9 @@ def generate_specific(config_filepath, controls, common_symbols, common_signals,
                 specific_script.write("\treturn false\n\n")
             else:
                 specific_script.write("\treturn 0\n\n")
-            specific_script.write("func set_%s(var arg : %s) -> void:\n" % (s["Name"], symbols_class[s["Name"]].__name__))
-            specific_script.write("\tif arg != %s_v:\n\t\t%s_v = arg\n\t\tinvoke_decision_tree()\n\n" % (s["Name"], s["Name"]))
+            if symbols_types[s["Name"]] != "Timer":
+                specific_script.write("func set_%s(var arg : %s) -> void:\n" % (s["Name"], symbols_class[s["Name"]].__name__))
+                specific_script.write("\tif arg != %s_v:\n\t\t%s_v = arg\n\t\tinvoke_decision_tree()\n\n" % (s["Name"], s["Name"]))
         specific_script.close()
      
 
