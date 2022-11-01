@@ -1,6 +1,10 @@
 {
     "Name" : "Specific",
     "Description" : "Specific controls setting. Determine sequences and possible ordering in controls",
+    "Functions" : {
+        "get_collider" : "null",
+        "get_target" : "null"
+    },
     "Rules" : {
         "Order" : [ "LEFT", "RIGHT" ],
         "Symbols" : [

@@ -1079,13 +1079,15 @@ def generate_specific(config_filepath, controls, common_symbols, common_signals,
         specific_script.write("func delegate_sequence_activation(sequence_id : int, duration : int, cooldown : int) -> bool:\n")
         specific_script.write("\treturn false\n\n")
         specific_script.write("func trigger(event : int) -> void:\n\tpass\n\n")
-        # All the evaluation function.
+        # All the evaluation and setting functions.
         for s in symbols:
             specific_script.write("func evaluate_%s() -> %s:\n" % (s["Name"], symbols_class[s["Name"]].__name__))
             if symbols_class[s["Name"]] == bool:
                 specific_script.write("\treturn false\n\n")
             else:
                 specific_script.write("\treturn 0\n\n")
+            specific_script.write("func set_%s(var arg : %s) -> void:\n" % (s["Name"], symbols_class[s["Name"]].__name__))
+            specific_script.write("\tif arg != %s_v:\n\t\t%s_v = arg\n\t\tinvoke_decision_tree()\n\n" % (s["Name"], s["Name"]))
         specific_script.close()
      
 
