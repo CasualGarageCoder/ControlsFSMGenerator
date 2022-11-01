@@ -999,13 +999,13 @@ def generate_specific(config_filepath, controls, common_symbols, common_signals,
         # Delegate process : Manage on control trigger.
         specific_script.write("func process_move(control : int, pressed : bool) -> void:\n\tvar invoke : bool = false\n")
         # Disable move control using conditions in Rules/Controlable.
-        for t in control_triggered_symbols:
+        for t in control_triggered_symbols["Controls"]:
             specific_script.write("\tif control == GlobalControls.PLAYER_CONTROL_%s:\n" % t.upper())
-            press_list = control_triggered_symbols[t]["onPress"] if "onPress" in control_triggered_symbols[t] else []
+            press_list = control_triggered_symbols["Controls"][t]["onPress"] if "onPress" in control_triggered_symbols["Controls"][t] else []
             if len(press_list) > 0:
                 specific_script.write("\t\tif pressed:\n")
                 evalutate_symbols("\t\t\t", press_list, "temp", specific_script, symbols_class, symbols_types, False)
-            unpressed_list = control_triggered_symbols[t]["onRelease"] if "onRelease" in control_triggered_symbols[t] else []
+            unpressed_list = control_triggered_symbols["Controls"][t]["onRelease"] if "onRelease" in control_triggered_symbols["Controls"][t] else []
             if len(unpressed_list) > 0:
                 if len(press_list) > 0:
                     specific_script.write("\t\telse:\n")
