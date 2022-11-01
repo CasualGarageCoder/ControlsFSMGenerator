@@ -174,7 +174,7 @@ def produce_readable_stack(stack):
     return result
 
 ######################## CREATE DECISION TREE ################################
-def create_decision_tree(total_rules, symbols_types, config_name, common_signals, control_id, is_debug):
+def create_decision_tree(total_rules, symbols_types, symbols_declared_types, config_name, common_signals, control_id, is_debug):
     if verbose_mode:
         print("## Symbols Types")
         pprint(symbols_types)
@@ -511,18 +511,22 @@ def create_decision_tree(total_rules, symbols_types, config_name, common_signals
                     continue
                 if value == 0:
                     # So, we begin with a new attributes.
-                    if symbols_types[statement["Attributes"]] == bool: # Boolean
+                    if symbols_declared_types[statement["Attributes"]] == "bool": # Boolean
+                        negate = "!" if list(statement["Values"].keys())[0] == False else ""
+                        write_indent(out_gd, len(stack), "if %s%s_v:" % (negate, statement["Attributes"]))
+                    elif symbols_declared_types[statement["Attributes"]] == "Timer":
                         negate = "!" if list(statement["Values"].keys())[0] == False else ""
                         write_indent(out_gd, len(stack), "if %s%s():" % (negate, statement["Attributes"]))
                     else:
                         value_name = list(statement["Values"].keys())[value]
-                        write_indent(out_gd, len(stack), "if %s() == %s:" % (statement["Attributes"], value_name))
+                        write_indent(out_gd, len(stack), "if %s_v == %s:" % (statement["Attributes"], value_name))
                 else:
                     if symbols_types[statement["Attributes"]] == bool: # Boolean
                         write_indent(out_gd, len(stack), "else:")
                     else:
                         value_name = list(statement["Values"].keys())[value]
-                        write_indent(out_gd, len(stack), "elif %s() == %s:" % (statement["Attributes"], value_name))
+                        # It can't be anything else that a control.
+                        write_indent(out_gd, len(stack), "elif %s_v == %s:" % (statement["Attributes"], value_name))
                 # We reinject the cursor as-is. It will be modified when going up.
                 stack.append(cursor)
                 # Don't forget to append the next statement/value
@@ -914,7 +918,7 @@ def generate_specific(config_filepath, controls, common_symbols, common_signals,
 
     # And finally, generate decision tree to generate the specific script.
     # We got all we need. The symbols, the triggers, the timers.
-    decision_tree = create_decision_tree(events, symbols_class, config_name, common_signals, control_id, generate_debug)
+    decision_tree = create_decision_tree(events, symbols_class, symbols_types, config_name, common_signals, control_id, generate_debug)
     print("## Generated Decision Tree")
 
     # Find missing events.
