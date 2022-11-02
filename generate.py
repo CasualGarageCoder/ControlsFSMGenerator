@@ -977,7 +977,8 @@ def generate_specific(config_filepath, controls, common_symbols, common_signals,
         # Add local timers
         for s in symbols:
             if s["Type"] == "Timer":
-                specific_script.write("\ttimer_expire.append(-1)\n\ttimer_timeout.append(%d)\n" % s["Default"])
+                timer_name = "%s_TIMER" % s["Name"].upper()
+                specific_script.write("\ttimer_expire[%s] = -1\n\ttimer_timeout[%s] = %d\n" % (timer_name, timer_name, s["Default"]))
         specific_script.write("\n")
         # Symbol accessors
         for s in symbols:

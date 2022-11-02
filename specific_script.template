@@ -2,7 +2,7 @@ class_name {Specific_Name}Controller
 extends MainController
 
 # Except timer
-var {symbol}_v : {type}
+var {symbol}_v : {type} = {default_value}
 
 
 func _ready():
@@ -85,6 +85,10 @@ func activate_sequence(sequence_id : int, duration : int, cooldown : int) -> boo
         # possible elif:
 
         return delegate_sequence_activation(sequence_id, duration, cooldown)
+
+func reset() -> void:
+        # For each variable
+        {symbol}_v = {default}
 
 # Extra behavior for sequence activation.
 func delegate_sequence_activation(sequence_id : int, duration : int, cooldown: int) -> bool:
