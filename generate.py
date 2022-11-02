@@ -1053,6 +1053,17 @@ def generate_specific(config_filepath, controls, common_symbols, common_signals,
                     default_value = s["Default"]
                 specific_script.write("\t%s_v = %s\n" % (s["Name"], default_value))
         specific_script.write("\t.reset()\n\n")
+        # Print debug function. Print values of all symbols and state of all timers.
+        specific_script.write("func print_debug() -> void:\n")
+        for s in symbols:
+            if s["Type"] == "Timer":
+                timer_name = "%s_TIMER" % s["Name"].upper()
+                specific_script.write("\tprint(\"Timer : %s is %%s\" %% (\"active\" if timer_expire[%s] > 0 else \"inactive\"))\n" % (timer_name, timer_name))
+            elif s["Type"] == "Control":
+                specific_script.write("\tprint(\"%s = %%s\" %% (GlobalControls.PLAYER_CONTROL_DESCRIPTION[%s_v - 1]))\n" % (s["Name"], s["Name"]))
+            else:
+                specific_script.write("\tprint(\"%s = %%s\" %% (%s_v))\n" % (s["Name"], s["Name"]))
+        specific_script.write("\n")
         # Compute 'can_move' based on "Rules/Controlable".
         specific_script.write("func can_move() -> bool:\n")
         if len(can_move_conditions) == 0:
