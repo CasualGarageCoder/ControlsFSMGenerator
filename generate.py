@@ -1054,7 +1054,7 @@ def generate_specific(config_filepath, controls, common_symbols, common_signals,
                 specific_script.write("\t%s_v = %s\n" % (s["Name"], default_value))
         specific_script.write("\t.reset()\n\n")
         # Print debug function. Print values of all symbols and state of all timers.
-        specific_script.write("func print_debug() -> void:\n")
+        specific_script.write("func print_symbols() -> void:\n")
         for s in symbols:
             if s["Type"] == "Timer":
                 timer_name = "%s_TIMER" % s["Name"].upper()
