@@ -22,10 +22,10 @@ onready var states : Array = [] # Array of IntermediateStates.
 onready var current_state : int
 
 # Timer timeout in ms.
-onready var timer_timeout : Array = []
+onready var timer_timeout : Dictionary = {}
 
 # Date at which the timer will expire. If -1, the timer is not in use.
-onready var timer_expire : Array = []
+onready var timer_expire : Dictionary = {}
 
 # Sequence description for cooldown and duration.
 onready var sequence : Array = []
@@ -73,12 +73,12 @@ func _ready():
 			control_sequence.duration = seq["Duration"]
 			control_sequence.cooldown = seq["Cooldown"]
 			sequence.append(control_sequence)
-			timer_timeout.append(control_sequence.duration)
-			timer_expire.append(-1)
-			timer_timeout.append(control_sequence.cooldown)
-			timer_expire.append(-1)
-		timer_timeout.append(json_content["SequenceTimeout"])
-		timer_expire.append(-1)
+			timer_timeout[i * 2] = control_sequence.duration
+			timer_expire[i * 2] = -1
+			timer_timeout[(i * 2) + 1] = control_sequence.cooldown
+			timer_expire[(i * 2) + 1] = -1
+		timer_timeout[seq_count * 2] = json_content["SequenceTimeout"]
+		timer_expire[seq_count * 2] = -1
 		var transitions : Array = json_content["Transitions"]
 		for t in transitions:
 			var state : IntermediateState = IntermediateState.new()
