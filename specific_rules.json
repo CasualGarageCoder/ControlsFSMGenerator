@@ -204,7 +204,17 @@
                     "Duration" : 2000,
                     "Cooldown" : 50000,
                     "Distribute" : { "Players" : [ "stun" ] },
-                    "Self" : [ "invulnerable" ]
+                    "Self" : [ "invulnerable" ],
+                    "Timers" : {
+                        "Self" : {
+                                "stun" : "reset"
+                         },
+                         "Distribute" : {
+                             "Players" : {
+                                 "test_0" : "continue"
+                             }
+                         }
+                     }
                 },
                 {
                     "Name" : "Dash_Left",

@@ -26,6 +26,10 @@
             "Name" : "direction",
             "Type" : "Control",
             "Default" : "LEFT"
+        },
+        {   "Name" : "test_0",
+            "Type" : "Timer",
+            "Default" : 5000
         }
     ],
     "Signals" : {

@@ -1023,13 +1023,25 @@ def generate_specific(config_filepath, controls, common_symbols, common_signals,
         specific_script.write("\tvar invoke : bool = false\n")
         first_seq = True
         for seq in sequences["List"]:
-            if "Self" in seq or "Distribute" in seq:
+            if "Self" in seq or "Distribute" in seq or "Timers" in seq:
                 sequence_name = "SEQUENCE_%s" % seq["Name"].upper()
                 if first_seq:
                     specific_script.write("\tif sequence_id == %s:\n" % sequence_name)
                     first_seq = False
                 else:
                     specific_script.write("\telif sequence_id == %s:\n" % sequence_name)
+            if "Timers" in seq:
+                if "Self" in seq["Timers"]:
+                    trigger_timers(specific_script, 2, seq["Timers"]["Self"])
+                if "Distribute" in seq["Timers"]:
+                    distribute_triggers = seq["Timers"]["Distribute"]
+                    for grp in distribute_triggers:
+                        group_name = grp.lower()
+                        write_indent(specific_script, 2, "for i in get_tree().get_nodes_in_group(\"%s\"):" % grp)
+                        write_indent(specific_script, 3, "if i == controlled_node_%s:" % group_name)
+                        write_indent(specific_script, 4, "continue")
+                        trigger_timers(specific_script, 3, distribute_triggers[grp], "i.")
+                specific_script.write("\n")
             if "Self" in seq:
                 symbols_to_evaluate = seq["Self"]
                 specific_script.write("\t\tinvoke = false\n")
