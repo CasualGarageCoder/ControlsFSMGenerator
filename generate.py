@@ -37,6 +37,25 @@ def evaluate_symbols(prefix, symbols, temp_name, specific_script, symbols_class,
     if print_invoke:
         specific_script.write("%sif invoke:\n%s\t%sinvoke_decision_tree()\n\n" % (prefix, prefix, evaluate_prefix))
 
+def trigger_signals(indent, signals, common_signals, control_id, file_d):
+    for s in signals:
+        signal_arguments = signals[s]
+        # Retrieve arguments.
+        arguments_declaration = list(common_signals[s].keys())
+        arguments_list = [ "\"%s\"" % (s) ]
+        for a in arguments_declaration:
+            raw_value = signal_arguments[a]
+            raw_type = common_signals[s][a]
+            if raw_type == "*":
+                arguments_list.append("%s()" % (raw_value))
+            elif raw_type == "Control":
+                arguments_list.append("%d" % (control_id[raw_value]))
+            elif raw_type == "bool":
+                arguments_list.append("true" if raw_value else "false")
+            else:
+                arguments_list.append("\"%s\"" % raw_value)
+        write_indent(file_d, indent, "emit_signal(%s)" % (", ".join(arguments_list)))
+
 def trigger_timers(out_gd, level, triggers, prefix = ""):
     for t in triggers:
         trigger_name = "%s_TIMER" % t.upper()
@@ -1023,7 +1042,7 @@ def generate_specific(config_filepath, controls, common_symbols, common_signals,
         specific_script.write("\tvar invoke : bool = false\n")
         first_seq = True
         for seq in sequences["List"]:
-            if "Self" in seq or "Distribute" in seq or "Timers" in seq:
+            if "Self" in seq or "Distribute" in seq or "Timers" in seq or "Signals" in seq:
                 sequence_name = "SEQUENCE_%s" % seq["Name"].upper()
                 if first_seq:
                     specific_script.write("\tif sequence_id == %s:\n" % sequence_name)
@@ -1041,6 +1060,9 @@ def generate_specific(config_filepath, controls, common_symbols, common_signals,
                         write_indent(specific_script, 3, "if i == controlled_node_%s:" % group_name)
                         write_indent(specific_script, 4, "continue")
                         trigger_timers(specific_script, 3, distribute_triggers[grp], "i.")
+                specific_script.write("\n")
+            if "Signals" in seq and len(seq["Signals"]) > 0:
+                trigger_signals(2, seq["Signals"], common_signals, control_id, specific_script)
                 specific_script.write("\n")
             if "Self" in seq:
                 symbols_to_evaluate = seq["Self"]
