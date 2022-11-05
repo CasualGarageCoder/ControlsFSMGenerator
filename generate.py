@@ -483,23 +483,7 @@ def create_decision_tree(total_rules, symbols_types, symbols_declared_types, con
                     effects = total_rules[event_name]["Effects"]
                     # Launch signal if any.
                     if "Signals" in effects and len(effects["Signals"]) > 0:
-                        for s in effects["Signals"]:
-                            signal_arguments = effects["Signals"][s]
-                            # Retrieve arguments.
-                            arguments_declaration = list(common_signals[s].keys())
-                            arguments_list = [ "\"%s\"" % (s) ]
-                            for a in arguments_declaration:
-                                raw_value = signal_arguments[a]
-                                raw_type = common_signals[s][a]
-                                if raw_type == "*":
-                                    arguments_list.append("%s()" % (raw_value))
-                                elif raw_type == "Control":
-                                    arguments_list.append("%d" % (control_id[raw_value]))
-                                elif raw_type == "bool":
-                                    arguments_list.append("true" if raw_value else "false")
-                                else:
-                                    arguments_list.append("\"%s\"" % raw_value)
-                            write_indent(out_gd, len(stack), "emit_signal(%s)" % (", ".join(arguments_list)))
+                        trigger_signals(len(stack), effects["Signals"], common_signals, control_id, out_gd)
                     # Launch timers if any.
                     if "Timers" in effects and len(effects["Timers"]) > 0:
                         timer_triggers = effects["Timers"]
