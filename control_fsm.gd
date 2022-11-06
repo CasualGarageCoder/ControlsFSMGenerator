@@ -83,10 +83,12 @@ func _ready():
 			if "Infer" in seq:
 				control_sequence.infer = seq["Infer"]
 			sequence.append(control_sequence)
-			timer_timeout[i * 2] = control_sequence.duration
-			timer_expire[i * 2] = -1
-			timer_timeout[(i * 2) + 1] = control_sequence.cooldown
-			timer_expire[(i * 2) + 1] = -1
+			var id_duration : int = i * 2
+			var id_cooldown : int = id_duration + 1
+			timer_timeout[id_duration] = control_sequence.duration
+			timer_expire[id_duration] = -1
+			timer_timeout[id_cooldown] = control_sequence.cooldown
+			timer_expire[id_cooldown] = -1
 		sequence_timer_max = seq_count * 2
 		timer_timeout[sequence_timer_max] = json_content["SequenceTimeout"]
 		timer_expire[sequence_timer_max] = -1
@@ -163,7 +165,9 @@ func set_move(control : int, pressed : bool) -> void:
 				override_sequence = activate_sequence(seq_id, sequence[seq_id].duration, sequence[seq_id].cooldown)
 				# Other cooldown inference
 				for i in sequence[seq_id].infer:
-					timer_expire[(i * 2) + 1] = current_time + sequence[i].cooldown
+					var id : int = int((i * 2) + 1)
+					var inf_id : int = int(i)
+					timer_expire[id] = current_time + sequence[inf_id].cooldown
 		var in_sequence : bool = false
 		for i in range(sequence.size()):
 			in_sequence = in_sequence or timer_expire[i * 2] > 0
@@ -176,10 +180,12 @@ func set_move(control : int, pressed : bool) -> void:
 # Uses delta to increment the current time. It's a quick alternative to OS calls.
 func _process(delta : float):
 	current_time += int(delta * 1000)
-	for i in timer_expire:
+	for i in timer_expire.keys():
 		if timer_expire[i] > 0:
 			if i < sequence_timer_max and i % 2 == 1: # Cooldown timer.
 				# Compute progression.
+				var current : int = timer_expire[i]
+				var timeout : int = timer_timeout[i]
 				var progression : float = (timer_expire[i] - current_time) / float(timer_timeout[i])
 				emit_signal("sequence_readiness", (i - 1) / 2, progression)
 		if timer_expire[i] <= current_time and timer_expire[i] > 0:
@@ -188,7 +194,7 @@ func _process(delta : float):
 			if i == sequence_timer_max: #  Sequence breaker timeout.
 				var next_state : int = states[current_state].timeout_route
 				current_state = next_state
-			elif i < sequence_timer_max and i%2 == 1: # Cooldown timer.
+			elif i < sequence_timer_max and i % 2 == 1: # Cooldown timer.
 				emit_signal("sequence_readiness", (i - 1) / 2, 0.0)
 	delegate_process()
 
