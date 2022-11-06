@@ -145,12 +145,7 @@ func set_move(control : int, pressed : bool) -> void:
 				timer_expire[(seq_id * 2) + 1] = current_time + sequence[seq_id].cooldown
 				override_sequence = activate_sequence(seq_id, sequence[seq_id].duration, sequence[seq_id].cooldown)
 
-		# Determine if we are in a sequence "dead zone".
-		var in_sequence : bool = false
-		for i in range(sequence.size()):
-			in_sequence = in_sequence || timer_expire[i * 2] > 0
-
-		if override_sequence and not in_sequence:
+		if override_sequence:
 			process_move(filtered_control, pressed)
 
 		# Switch to next state.
@@ -177,6 +172,11 @@ func trigger_timer(timer : int, override : bool = false) -> bool:
 		return false
 	timer_expire[timer] = current_time + timer_timeout[timer]
 	return true
+
+# Force end timer.
+func reset_timer(timer : int) -> void:
+	timer_expire[timer] = -1
+	on_timer_expire(timer)
 
 ## "Virtual Methods"
 
