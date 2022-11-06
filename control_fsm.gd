@@ -3,6 +3,10 @@ extends Node
 
 export(String) var descriptor_filename : String
 
+# Sends the sequence readiness. When progress is 0, the sequence can be activated.
+# Else, it indicates the progression of the cooldown for 1.0 to 0.0.
+signal sequence_readiness(sequence, progress)
+
 class IntermediateState:
 	var state_name : String # State name
 	var access : Array = [] # In fact, we don't care about if the controls has been pressed or not
@@ -29,6 +33,9 @@ onready var timer_expire : Dictionary = {}
 
 # Sequence description for cooldown and duration.
 onready var sequence : Array = []
+
+# Maximum identifier for sequence timer.
+onready var sequence_timer_max : int
 
 # Current state of the controls. The derived scripts might use this to determine animations,
 # movements and so on.
@@ -77,8 +84,9 @@ func _ready():
 			timer_expire[i * 2] = -1
 			timer_timeout[(i * 2) + 1] = control_sequence.cooldown
 			timer_expire[(i * 2) + 1] = -1
-		timer_timeout[seq_count * 2] = json_content["SequenceTimeout"]
-		timer_expire[seq_count * 2] = -1
+		sequence_timer_max = seq_count * 2
+		timer_timeout[sequence_timer_max] = json_content["SequenceTimeout"]
+		timer_expire[sequence_timer_max] = -1
 		var transitions : Array = json_content["Transitions"]
 		for t in transitions:
 			var state : IntermediateState = IntermediateState.new()
@@ -107,6 +115,10 @@ func _ready():
 		print("Unable to load file %s" % descriptor_filename)
 		get_tree().quit(-1)
 	set_process(true)
+
+# Provide the number of sequences.
+func get_sequence_count() -> int:
+	return sequence.size()
 
 # Reset the state machine.
 func reset() -> void:
@@ -144,11 +156,12 @@ func set_move(control : int, pressed : bool) -> void:
 				timer_expire[seq_id * 2] = current_time + sequence[seq_id].duration
 				timer_expire[(seq_id * 2) + 1] = current_time + sequence[seq_id].cooldown
 				override_sequence = activate_sequence(seq_id, sequence[seq_id].duration, sequence[seq_id].cooldown)
-		#Determine if we are in a sequence "dead zone".
+		
 		var in_sequence : bool = false
 		for i in range(sequence.size()):
-		in_sequence = in_sequence || timer_expire[i * 2] > 0
-		if override_sequence and not in_sequence:
+			in_sequence = in_sequence or timer_expire[i * 2] > 0
+			
+		if override_sequence or not in_sequence:
 			process_move(filtered_control, pressed)
 
 		# Switch to next state.
@@ -158,15 +171,20 @@ func set_move(control : int, pressed : bool) -> void:
 # Uses delta to increment the current time. It's a quick alternative to OS calls.
 func _process(delta : float):
 	current_time += int(delta * 1000)
-	for i in range(timer_expire.size()):
-		if timer_expire[i] < 0:
-			continue
-		if timer_expire[i] <= current_time:
+	for i in timer_expire:
+		if timer_expire[i] > 0:
+			if i < sequence_timer_max and i % 2 == 1: # Cooldown timer.
+				# Compute progression.
+				var progression : float = (timer_expire[i] - current_time) / timer_timeout[i]
+				emit_signal("sequence_readiness", (i - 1) / 2, progression)
+		if timer_expire[i] <= current_time and timer_expire[i] > 0:
 			timer_expire[i] = -1
 			on_timer_expire(i)
-			if i == (timer_expire.size() - 1):
+			if i == sequence_timer_max: #  Sequence breaker timeout.
 				var next_state : int = states[current_state].timeout_route
 				current_state = next_state
+			elif i < sequence_timer_max and i%2 == 1: # Cooldown timer.
+				emit_signal("sequence_readiness", (i - 1) / 2, 0.0)
 	delegate_process()
 
 # Trigger a timer
