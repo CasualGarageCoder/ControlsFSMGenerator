@@ -17,8 +17,9 @@ class IntermediateState:
 	var fire : Array = [] # Sequence Identifier. -1 if none.
 
 class ControlSequence:
-	var duration : int # ms
-	var cooldown : int # ms
+	var duration : int = 0 # ms
+	var cooldown : int = 0 # ms
+	var infer : Array = [] # Triggering this sequence trigger onter cooldown timers ONLY.
 
 onready var states : Array = [] # Array of IntermediateStates.
 
@@ -79,6 +80,8 @@ func _ready():
 			var control_sequence : ControlSequence = ControlSequence.new()
 			control_sequence.duration = seq["Duration"]
 			control_sequence.cooldown = seq["Cooldown"]
+			if "Infer" in seq:
+				control_sequence.infer = seq["Infer"]
 			sequence.append(control_sequence)
 			timer_timeout[i * 2] = control_sequence.duration
 			timer_expire[i * 2] = -1
@@ -125,6 +128,8 @@ func reset() -> void:
 	set_process(false)
 	current_state = starting_state
 	for t in range(len(timer_expire)):
+		if t < sequence_timer_max and t % 2 == 1:
+			emit_signal("sequence_readiness", (t - 1) / 2, 0.0)
 		timer_expire[t] = -1
 	for t in range(len(current_control)):
 		current_control[t] = false
@@ -156,14 +161,14 @@ func set_move(control : int, pressed : bool) -> void:
 				timer_expire[seq_id * 2] = current_time + sequence[seq_id].duration
 				timer_expire[(seq_id * 2) + 1] = current_time + sequence[seq_id].cooldown
 				override_sequence = activate_sequence(seq_id, sequence[seq_id].duration, sequence[seq_id].cooldown)
-		
+				# Other cooldown inference
+				for i in sequence[seq_id].infer:
+					timer_expire[(i * 2) + 1] = current_time + sequence[i].cooldown
 		var in_sequence : bool = false
 		for i in range(sequence.size()):
 			in_sequence = in_sequence or timer_expire[i * 2] > 0
-			
 		if override_sequence or not in_sequence:
 			process_move(filtered_control, pressed)
-
 		# Switch to next state.
 		current_state = states[current_state].access[filtered_control]
 
@@ -175,7 +180,7 @@ func _process(delta : float):
 		if timer_expire[i] > 0:
 			if i < sequence_timer_max and i % 2 == 1: # Cooldown timer.
 				# Compute progression.
-				var progression : float = (timer_expire[i] - current_time) / timer_timeout[i]
+				var progression : float = (timer_expire[i] - current_time) / float(timer_timeout[i])
 				emit_signal("sequence_readiness", (i - 1) / 2, progression)
 		if timer_expire[i] <= current_time and timer_expire[i] > 0:
 			timer_expire[i] = -1

@@ -229,7 +229,8 @@
                         "LEFT"
                     ],
                     "Duration" : 16,
-                    "Cooldown": 10000
+                    "Cooldown": 10000,
+                    "Infer" : [ "Dash_Right" ]
                 },
                 {
                     "Name" : "Dash_Right",
@@ -238,7 +239,8 @@
                         "RIGHT"
                     ],
                     "Duration" : 16,
-                    "Cooldown" : 10000
+                    "Cooldown" : 10000,
+                    "Infer" : [ "Dash_Left" ] 
                 }
             ]
         }

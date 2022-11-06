@@ -732,6 +732,8 @@ def generate_specific(config_filepath, controls, common_symbols, common_signals,
                         trigger["Fire"] = seq_finish["Name"]
                         trigger["Cooldown"] = seq_finish["Cooldown"]
                         trigger["Duration"] = seq_finish["Duration"]
+                        if "Infer" in seq_finish:
+                            trigger["Infer"] = seq_finish["Infer"]
                         new_sequence = sequences_tree
                         new_progress = []
                     else:
@@ -805,6 +807,11 @@ def generate_specific(config_filepath, controls, common_symbols, common_signals,
         new_sequence["Duration"] = sequences_list[i]["Duration"]
         pre_computed_sequences.append(new_sequence)
 
+    for i in range(len(sequences_list)):
+        if "Infer" in sequences_list[i]:
+            # Compute new inference sequence id.
+            infer_id = list(map(lambda inf : sequences_id[inf], sequences_list[i]["Infer"]))
+            pre_computed_sequences[i]["Infer"] = infer_id
     # Generate human readable description file.
     enhanced_transitions = []
 
