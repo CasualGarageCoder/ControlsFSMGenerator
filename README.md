@@ -4,9 +4,10 @@ Generates a JSON representing a Finite State Machine for player controls.
 
 # How to use it
 
-<code>$ ./generate.py <-d> -g [path_to_golbal_computation_rules] -l [path_to_specific_rules_1] ...</code>
+<code>$ ./generate.py <-v> <-d> -g [path_to_golbal_computation_rules] -l [path_to_specific_rules_1] ...</code>
 
 The <code>-d</code> option activates the debug mode.
+The <code>-v</code> option activates the verbose mode.
 
 # Result
 
