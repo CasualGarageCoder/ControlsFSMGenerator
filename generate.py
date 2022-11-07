@@ -52,6 +52,8 @@ def trigger_signals(indent, signals, common_signals, control_id, file_d):
                 arguments_list.append("%d" % (control_id[raw_value]))
             elif raw_type == "bool":
                 arguments_list.append("true" if raw_value else "false")
+            elif raw_type == "$":
+                arguments_list.append("%s" % raw_value)
             else:
                 arguments_list.append("\"%s\"" % raw_value)
         write_indent(file_d, indent, "emit_signal(%s)" % (", ".join(arguments_list)))
