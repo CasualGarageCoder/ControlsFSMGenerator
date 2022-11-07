@@ -57,6 +57,9 @@ onready var last_control_pressed : Array
 # Timestamp of last control released.
 onready var last_control_released : Array
 
+# The character is "stuck" in an 'in_sequence' dead zone.
+onready var in_sequence : bool = false
+
 ## Initialisation. Read the JSON, collect and compute useful data.
 func _ready():
 	set_process(false)
@@ -168,13 +171,17 @@ func set_move(control : int, pressed : bool) -> void:
 					var id : int = int((i * 2) + 1)
 					var inf_id : int = int(i)
 					timer_expire[id] = current_time + sequence[inf_id].cooldown
-		var in_sequence : bool = false
+		in_sequence = false
 		for i in range(sequence.size()):
 			in_sequence = in_sequence or timer_expire[i * 2] > 0
 		if override_sequence or not in_sequence:
 			process_move(filtered_control, pressed)
 		# Switch to next state.
 		current_state = states[current_state].access[filtered_control]
+
+# Is the character in dead-zone.
+func is_in_sequence() -> bool:
+	return in_sequence
 
 # Processing function. Deal with the different timeouts.
 # Uses delta to increment the current time. It's a quick alternative to OS calls.
