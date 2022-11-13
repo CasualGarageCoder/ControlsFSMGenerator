@@ -201,8 +201,14 @@ func _process(delta : float):
 			if i == sequence_timer_max: #  Sequence breaker timeout.
 				var next_state : int = states[current_state].timeout_route
 				current_state = next_state
-			elif i < sequence_timer_max and i % 2 == 1: # Cooldown timer.
-				emit_signal("sequence_readiness", (i - 1) / 2, 0.0)
+			elif i < sequence_timer_max:
+				if i % 2 == 1: # Cooldown timer.
+					emit_signal("sequence_readiness", (i - 1) / 2, 0.0)
+				else:
+					# Test in_sequence
+					in_sequence = false
+					for j in range(sequence.size()):
+						in_sequence = in_sequence or timer_expire[j * 2] > 0
 	delegate_process()
 
 # Trigger a timer
