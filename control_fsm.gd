@@ -249,3 +249,11 @@ func can_move() -> bool:
 # Allow performing extra processing.
 func delegate_process() -> void:
 	pass
+
+# Activate an effect.
+func activate_effect(_scene : Node, _pos : Vector2) -> void:
+	pass
+
+# Effect finished.
+func effect_finished(_scene : Node) -> void:
+	pass
