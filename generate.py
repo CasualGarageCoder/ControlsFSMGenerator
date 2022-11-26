@@ -60,12 +60,11 @@ def trigger_signals(indent, signals, common_signals, control_id, file_d):
 
 def trigger_timers(out_gd, level, triggers, prefix = ""):
     for t in triggers:
-        trigger_name = "%s_TIMER" % t.upper()
+        trigger_name = "%s" % t.upper()
         if "reset" == triggers[t]:
-            write_indent(out_gd, level, "%strigger_timer(%s, true)" % (prefix, trigger_name))
+            write_indent(out_gd, level, "%strigger_timer(TIMERS_IDENTIFIER[\"%s\"], true)" % (prefix, trigger_name))
         else:
-            write_indent(out_gd, level, "%strigger_timer(%s)" % (prefix, trigger_name))
-
+            write_indent(out_gd, level, "%strigger_timer(TIMERS_IDENTIFIER[\"%s\"])" % (prefix, trigger_name))
 
 # current_rules : Rules that are still to evaluate.
 # attr : array with names of attribute to evaluate.
@@ -883,19 +882,26 @@ def generate_specific(config_filepath, controls, common_symbols, common_signals,
         specific_script_class_name = ''.join(e.title() for e in name_tokens)
         specific_constants.write("class_name %sCharacterController\n" % specific_script_class_name)
         specific_constants.write("extends BaseCharacterController\n\n")
+        timers_identifier = {}
         sequences_list = sequences["List"]
         for s in range(len(sequences_list)):
             useq_name = sequences_list[s]["Name"].upper()
             specific_constants.write("const SEQUENCE_%s : int = %d\n" % (useq_name, s))
             specific_constants.write("const SEQUENCE_%s_DURATION_TIMER : int = %d\n" % (useq_name, (s * 2)))
+            timers_identifier["SEQUENCE_%s_DURATION" % (useq_name)] = s * 2
             specific_constants.write("const SEQUENCE_%s_COOLDOWN_TIMER : int = %d\n" % (useq_name, ((s * 2) + 1)))
+            timers_identifier["SEQUENCE_%s_COOLDOWN" % (useq_name)] = (s * 2) + 1
         specific_constants.write("const SEQUENCE_TIMER : int = %d\n" % (len(sequences_list) * 2))
+        timers_identifier["SEQUENCE"] = len(sequences_list) * 2
         count = len(sequences_list) * 2 + 1
         ## Add timer symbols
         for s in symbols:
             if s["Type"] == "Timer":
                 specific_constants.write("const %s_TIMER : int = %d\n" % (s["Name"].upper(), count))
+                timers_identifier[s["Name"].upper()] = count
                 count += 1
+        ## And timer name to identifier dictionary
+        specific_constants.write("const TIMERS_IDENTIFIER : Dictionary = %s\n" % (timers_identifier))
         # Add events
         count = 0
         event_descriptor = []
@@ -996,7 +1002,7 @@ def generate_specific(config_filepath, controls, common_symbols, common_signals,
         for s in symbols:
             if s["Type"] == "Timer":
                 specific_script.write("func %s() -> bool:\n" % s["Name"])
-                specific_script.write("\tvar identifier : int = %s_TIMER\n" % (s["Name"].upper()))
+                specific_script.write("\tvar identifier : int = TIMERS_IDENTIFIER[\"%s\"]\n" % (s["Name"].upper()))
                 specific_script.write("\tif identifier >= timer_expire.size():\n\t\treturn false\n")
                 specific_script.write("\treturn timer_expire[identifier] > 0 && current_time < timer_expire[identifier]\n\n")
             else:
@@ -1084,7 +1090,7 @@ def generate_specific(config_filepath, controls, common_symbols, common_signals,
         specific_script.write("func print_symbols() -> void:\n")
         for s in symbols:
             if s["Type"] == "Timer":
-                timer_name = "%s_TIMER" % s["Name"].upper()
+                timer_name = "TIMERS_IDENTIFIER[\"%s\"]" % s["Name"].upper()
                 specific_script.write("\tprint(\"Timer : %s is %%s\" %% (\"active\" if timer_expire[%s] > 0 else \"inactive\"))\n" % (timer_name, timer_name))
             elif s["Type"] == "Control":
                 specific_script.write("\tprint(\"%s = %%s\" %% (GlobalControls.PLAYER_CONTROLS_DESCRIPTION[%s_v - 1] if %s_v > 0 else \"None\"))\n" % (s["Name"], s["Name"], s["Name"]))
@@ -1106,7 +1112,7 @@ def generate_specific(config_filepath, controls, common_symbols, common_signals,
             timer_expirations = control_triggered_symbols["Timers"]
             for timer in timer_expirations:
                 evaluation_group = timer_expirations[timer]
-                specific_script.write("\tif timer == %s_TIMER:\n" % timer.upper())
+                specific_script.write("\tif timer == TIMERS_IDENTIFIER[\"%s\"]:\n" % timer.upper())
                 if len(evaluation_group) == 0:
                     specific_script.write("\t\tinvoke = true\n\n")
                 else:
