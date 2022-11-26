@@ -61,10 +61,16 @@ def trigger_signals(indent, signals, common_signals, control_id, file_d):
 def trigger_timers(out_gd, level, triggers, prefix = ""):
     for t in triggers:
         trigger_name = "%s" % t.upper()
-        if "reset" == triggers[t]:
-            write_indent(out_gd, level, "%strigger_timer(TIMERS_IDENTIFIER[\"%s\"], true)" % (prefix, trigger_name))
+        if prefix == "":
+            if "reset" == triggers[t]:
+                write_indent(out_gd, level, "trigger_timer(TIMERS_IDENTIFIER[\"%s\"], true)" % (trigger_name))
+            else:
+                write_indent(out_gd, level, "trigger_timer(TIMERS_IDENTIFIER[\"%s\"])" % (trigger_name))
         else:
-            write_indent(out_gd, level, "%strigger_timer(TIMERS_IDENTIFIER[\"%s\"])" % (prefix, trigger_name))
+            if "reset" == triggers[t]:
+                write_indent(out_gd, level, "%strigger_timer(\"%s\", true)" % (prefix, trigger_name))
+            else:
+                write_indent(out_gd, level, "%strigger_timer(\"%s\")" % (prefix, trigger_name))
 
 # current_rules : Rules that are still to evaluate.
 # attr : array with names of attribute to evaluate.
