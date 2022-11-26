@@ -1091,7 +1091,7 @@ def generate_specific(config_filepath, controls, common_symbols, common_signals,
         for s in symbols:
             if s["Type"] == "Timer":
                 timer_name = "TIMERS_IDENTIFIER[\"%s\"]" % s["Name"].upper()
-                specific_script.write("\tprint(\"Timer : %s is %%s\" %% (\"active\" if timer_expire[%s] > 0 else \"inactive\"))\n" % (timer_name, timer_name))
+                specific_script.write("\tprint(\"Timer : %s is %%s\" %% (\"active\" if timer_expire[%s] > 0 else \"inactive\"))\n" % (s["Name"].upper(), timer_name))
             elif s["Type"] == "Control":
                 specific_script.write("\tprint(\"%s = %%s\" %% (GlobalControls.PLAYER_CONTROLS_DESCRIPTION[%s_v - 1] if %s_v > 0 else \"None\"))\n" % (s["Name"], s["Name"], s["Name"]))
             else:
