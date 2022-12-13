@@ -1172,15 +1172,17 @@ def main():
             sys.exit(1)
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:],"vdg:s:")
+        opts, args = getopt.getopt(sys.argv[1:],"vdg:s:P:")
     except getopt.GetoptError:
-        print("%s -d -g [path_to_global_conf.json] -s [path_to_first_specific.json] -s ..." % sys.argv[0])
+        print("%s -d -g [path_to_global_conf.json] -s [path_to_first_specific.json] -s ... -P [path_to_project_directory]" % sys.argv[0])
         sys_exit(1)
     for opt, arg in opts:
         if opt == "-g":
             global_filepath = arg
         elif opt == "-s":
             specific_filepaths.append(arg)
+        elif opt == "-P":
+            specific_filepaths = [arg + "/" + fl for fl in os.listdir(arg)]
         elif opt == "-v":
             print("## Activate Verbose Mode")
             verbose_mode = True
@@ -1194,6 +1196,8 @@ def main():
                     sys.exit(1)
             generate_debug = True
 
+    if global_filepath in specific_filepaths:
+        specific_filepaths.remove(global_filepath)
     print("Global Filepath = '%s'" % global_filepath)
     print("Specific Filepaths = '%s'" % specific_filepaths)
 
