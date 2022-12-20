@@ -60,9 +60,18 @@ onready var last_control_released : Array
 # The character is "stuck" in an 'in_sequence' dead zone.
 onready var in_sequence : bool = false
 
+# Unshuffled controls.
+onready var unshuffled_controls : Array
+
+# Filterd controls.
+onready var filtered_controls : Array
+
 ## Initialisation. Read the JSON, collect and compute useful data.
 func _ready():
 	set_process(false)
+	unshuffled_controls = [0]
+	unshuffled_controls.append_array(range(1, GlobalControls.PLAYER_CONTROLS_DESCRIPTION.size() + 1))
+	filtered_controls = unshuffled_controls
 	var file = File.new()
 	var err = file.open(descriptor_filename, File.READ)
 	if err == OK:
@@ -166,6 +175,7 @@ func set_move(control : int, pressed : bool) -> void:
 				timer_expire[seq_id * 2] = current_time + sequence[seq_id].duration
 				timer_expire[(seq_id * 2) + 1] = current_time + sequence[seq_id].cooldown
 				override_sequence = activate_sequence(seq_id, sequence[seq_id].duration, sequence[seq_id].cooldown)
+				invoke_decision_tree()
 				# Other cooldown inference
 				for i in sequence[seq_id].infer:
 					var id : int = int((i * 2) + 1)
@@ -223,7 +233,28 @@ func reset_timer(timer : int) -> void:
 	timer_expire[timer] = -1
 	on_timer_expire(timer)
 
+# Unshuffle controls.
+func restore_controls() -> void:
+	filtered_controls = unshuffled_controls
+	invoke_decision_tree()
+
+# Shuffle controls
+func shuffle_controls() -> void:
+	filtered_controls = [ 0 ]
+	var ctr = range(1, GlobalControls.PLAYER_CONTROLS_DESCRIPTION.size() + 1)
+	ctr.shuffle()
+	filtered_controls.append_array(ctr)
+	invoke_decision_tree()
+
+# Invoked before effectively process the control. Can be used for simulation of 'confusion spell'.
+func filter_control(control : int, _pressed : int) -> int:
+	return filtered_controls[control]
+
 ## "Virtual Methods"
+
+# Invoked when the decision tree needs to be evaluated.
+func invoke_decision_tree() -> void:
+	pass
 
 # Invoked when a sequence has been completed.
 # sequence_id is the identifier of the sequence (which value matches a constant generated in the
@@ -242,10 +273,6 @@ func process_move(_control : int, _pressed : bool) -> void:
 #   in the associated singleton.
 func on_timer_expire(_timer : int) -> void:
 	pass
-
-# Invoked before effectively process the control. Can be used for simulation of 'confusion spell'.
-func filter_control(control : int, _pressed : int) -> int:
-	return control
 
 # Invoked to determine if a control change can be processed. Can be used to simulate stun or
 #   other kind of behavior modifier.
