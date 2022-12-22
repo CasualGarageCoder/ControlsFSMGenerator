@@ -1182,7 +1182,7 @@ def main():
         elif opt == "-s":
             specific_filepaths.append(arg)
         elif opt == "-P":
-            specific_filepaths = [arg + "/" + fl for fl in os.listdir(arg)]
+            specific_filepaths = [os.path.join(arg, fl) for fl in filter(lambda x : x.endswith(".json"), os.listdir(arg))]
         elif opt == "-v":
             print("## Activate Verbose Mode")
             verbose_mode = True
