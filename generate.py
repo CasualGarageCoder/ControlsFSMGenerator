@@ -505,6 +505,19 @@ def create_decision_tree(total_rules, symbols_types, symbols_declared_types, con
                                 write_indent(out_gd, len(stack) + 1, "if i == controlled_node_%s:" % group_name)
                                 write_indent(out_gd, len(stack) + 2, "continue")
                                 trigger_timers(out_gd, len(stack) + 1, distribute_triggers[grp], "i.")
+                    if "Self" in effects and len(effects["Self"]) > 0:
+                        symbols_to_evaluate = effects["Self"]
+                        write_indent(out_gd, len(stack), "var invoke : bool = false")
+                        evaluate_symbols("\t"*len(stack), symbols_to_evaluate, "new", out_gd, symbols_types, symbols_declared_types)
+                    if "Distribute" in effects:
+                        for target in effects["Distribute"]:
+                            symbols_to_evaluate = effects["Distribute"][target]
+                            write_indent(out_gd, len(stack), "for i in get_tree().get_nodes_in_group(\"%s\"):" % target)
+                            write_indent(out_gd, len(stack) + 1, "if i == controlled_node_%s:" % (target.lower()))
+                            write_indent(out_gd, len(stack) + 2, "continue")
+                            write_indent(out_gd, len(stack) + 1, "invoke = false")
+                            evaluate_symbols("\t" * (len(stack)+1), symbols_to_evaluate, "new_dist", out_gd, symbols_types, symbols_declared_types, True, "i.")
+
                 # Trigger event.
                 identifier = "EVENT_%s" % event_name.upper()
                 write_indent(out_gd, len(stack), "trigger(%s)" % identifier)

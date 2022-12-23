@@ -66,6 +66,9 @@ onready var unshuffled_controls : Array
 # Filterd controls.
 onready var filtered_controls : Array
 
+# If true, special movements aren't tracked (hence nor triggered).
+onready var dampened : bool = false
+
 ## Initialisation. Read the JSON, collect and compute useful data.
 func _ready():
 	set_process(false)
@@ -169,7 +172,7 @@ func set_move(control : int, pressed : bool) -> void:
 			timer_expire[timer] = current_time + timer_timeout[timer]
 		var seq_id : int = states[current_state].fire[filtered_control]
 		var override_sequence : bool = true
-		if pressed and seq_id >= 0:
+		if pressed and seq_id >= 0 and not dampened:
 			timer_expire[sequence.size() * 2] = -1
 			if timer_expire[(seq_id * 2) + 1] < 0: # If the timer is a cooldown, we don't activate special move.
 				timer_expire[seq_id * 2] = current_time + sequence[seq_id].duration
@@ -249,6 +252,10 @@ func shuffle_controls() -> void:
 # Invoked before effectively process the control. Can be used for simulation of 'confusion spell'.
 func filter_control(control : int, _pressed : int) -> int:
 	return filtered_controls[control]
+
+# Set the dampening flag.
+func block_special_moves(var flag : bool) -> void:
+	dampened = flag
 
 ## "Virtual Methods"
 
