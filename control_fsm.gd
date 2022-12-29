@@ -238,14 +238,21 @@ func reset_timer(timer : int) -> void:
 
 # Unshuffle controls.
 func restore_controls() -> void:
-	filtered_controls = unshuffled_controls
+	if is_control_shuffle():
+		filtered_controls = unshuffled_controls
+		invoke_decision_tree()
 
 # Shuffle controls
 func shuffle_controls() -> void:
-	filtered_controls = [ 0 ]
-	var ctr = range(1, GlobalControls.PLAYER_CONTROLS_DESCRIPTION.size() + 1)
-	ctr.shuffle()
-	filtered_controls.append_array(ctr)
+	if not is_control_shuffle():
+		filtered_controls = [ 0 ]
+		var ctr = range(1, GlobalControls.PLAYER_CONTROLS_DESCRIPTION.size() + 1)
+		ctr.shuffle()
+		filtered_controls.append_array(ctr)
+		invoke_decision_tree()
+
+func is_control_shuffle() -> bool:
+	return unshuffled_controls != filtered_controls
 
 # Invoked before effectively process the control. Can be used for simulation of 'confusion spell'.
 func filter_control(control : int, _pressed : int) -> int:
