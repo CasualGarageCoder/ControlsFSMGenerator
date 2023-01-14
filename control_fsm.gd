@@ -15,6 +15,7 @@ class IntermediateState:
 	var timer_reset : Array = [] # For each control move, a timer reset can occurs.
 	var timeout_route : int # Timer timeout escape. No change in controls.
 	var fire : Array = [] # Sequence Identifier. -1 if none.
+        var freeze : bool
 
 class ControlSequence:
 	var duration : int = 0 # ms
@@ -115,6 +116,7 @@ func _ready():
 				state.access_name.append("")
 				state.fire.append(-1)
 				state.timer_reset.append([])
+                                state.freeze = false
 			for i in t:
 				if "Name" in i:
 					state.state_name = i["Name"]
@@ -130,6 +132,8 @@ func _ready():
 					state.fire[i["Control"]] = i["Fire"]
 				if "Timer" in i:
 					state.timer_reset[i["Control"]].append(seq_count * 2)
+                                if "Freeze" in i:
+                                        state.freeze = i["Freeze"]
 			states.append(state)
 	else:
 		print("Unable to load file %s" % descriptor_filename)
@@ -187,7 +191,7 @@ func set_move(control : int, pressed : bool) -> void:
 		in_sequence = false
 		for i in range(sequence.size()):
 			in_sequence = in_sequence or timer_expire[i * 2] > 0
-		if override_sequence or not in_sequence:
+		if override_sequence or (not in_sequence) or (not states[current_state].access[filtered_control].freeze):
 			process_move(filtered_control, pressed)
 		# Switch to next state.
 		current_state = states[current_state].access[filtered_control]

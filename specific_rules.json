@@ -223,12 +223,23 @@
                      }
                 },
                 {
+                    "Name" : "Super_Jump",
+                    "Sequence" : [
+                        "DOWN",
+                        "UP",
+                        "UP"
+                    ],
+                    "Freeze" : true,
+                    "Duration" : 20,
+                    "Cooldown" : 10000
+                },
+                {
                     "Name" : "Dash_Left",
                     "Sequence" : [
                         "LEFT",
                         "LEFT"
                     ],
-                    "Duration" : 16,
+                    "Duration" : 20,
                     "Cooldown": 10000,
                     "Infer" : [ "Dash_Right" ]
                 },
@@ -238,7 +249,7 @@
                         "RIGHT",
                         "RIGHT"
                     ],
-                    "Duration" : 16,
+                    "Duration" : 20,
                     "Cooldown" : 10000,
                     "Infer" : [ "Dash_Left" ] 
                 }

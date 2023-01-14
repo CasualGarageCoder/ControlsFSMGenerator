@@ -649,19 +649,23 @@ def generate_specific(config_filepath, controls, common_symbols, common_signals,
     for s in sequences["List"]:
         cursor_node = sequences_tree
         controls_sequence = s["Sequence"]
+        if "Freeze" in s:
+            freeze = s["Freeze"]
+        else:
+            freeze = False
         for key in controls_sequence:
             if not key in controls:
                 print("!!! The sequence control '%s' is not a declared control !!!" % key)
                 sys.exit(-1)
             if not key in cursor_node:
-                cursor_node[key] = {}
+                cursor_node[key] = { "Freeze" : freeze }
             elif "Name" in cursor_node[key]:
                 print("!!! The sequence '%s' collides with sequence '%s'!!!" % (s["Name"], cursor_node[key]["Name"]))
                 sys.exit(-1)
             cursor_node = cursor_node[key]
         # At the end, the cursor node will contain informations about special move.
-        if cursor_node:
-            print("!!! The sequence '%s' is a prefix of another one ! ABORT !!!" % s["Name"])
+        if len(cursor_node) > 1 : # The node will always have one node.
+            print("!!! The sequence '%s' is a prefix of another one ! ABORT !!! (%s)" % (s["Name"], cursor_node))
             sys.exit(-1)
         else:
             cursor_node["Name"] = s["Name"]
@@ -685,8 +689,9 @@ def generate_specific(config_filepath, controls, common_symbols, common_signals,
             "Transitions" : [],                  # Transition to other state.
             "Pressed" : [],                      # Pressed key, ordered as stated in the computation rules.
             "Controls" : idle_state_controls,    # Controls status.
-            "Sequence" : sequences_tree,          # Current sequence tree node.
-            "Progress" : []                      # Current sequence progression.
+            "Sequence" : sequences_tree,         # Current sequence tree node.
+            "Progress" : [],                     # Current sequence progression.
+            "Freeze" : False                     # Freeze
             }
 
     states["Idle"] = idle_state
@@ -720,7 +725,8 @@ def generate_specific(config_filepath, controls, common_symbols, common_signals,
                         "Pressed" : states[current_state]["Pressed"],
                         "Controls" : states[current_state]["Controls"],
                         "Sequence" : sequences_tree,
-                        "Progress" : []
+                        "Progress" : [],
+                        "Freeze" : False
                         }
                 state_seeds.put(target_name)
 
@@ -741,9 +747,11 @@ def generate_specific(config_filepath, controls, common_symbols, common_signals,
                 control_order.remove(c)
             trigger["Pressed"] = new_controls[c]
 
+            sequence_freeze = False
             # Sequence progression.
             new_progress = states[current_state]["Progress"].copy()
             new_sequence = states[current_state]["Sequence"]
+            sequence_freeze = False
             if new_controls[c]:
                 if c in new_sequence:
                     if "Name" in new_sequence[c]:
@@ -756,13 +764,16 @@ def generate_specific(config_filepath, controls, common_symbols, common_signals,
                             trigger["Infer"] = seq_finish["Infer"]
                         new_sequence = sequences_tree
                         new_progress = []
+                        trigger["Freeze"] = True
                     else:
                         trigger["Timer"] = "SequenceTimer"
                         new_sequence = new_sequence[c]
                         new_progress.append(c)
+                        trigger["Freeze"] = new_sequence["Freeze"]
                 else:
                     new_progress = []
                     new_sequence = sequences_tree
+                    sequence_freeze = False
 
 
             # State name building
@@ -799,7 +810,7 @@ def generate_specific(config_filepath, controls, common_symbols, common_signals,
                         "Pressed" : name_controls,
                         "Controls" : new_controls,
                         "Sequence" : new_sequence,
-                        "Progress" : new_progress
+                        "Progress" : new_progress,
                         }
                 log_verbose("--+ Add '%s' state" % new_name)
                 log_verbose("--+ With control order %s" % control_order)
@@ -884,6 +895,8 @@ def generate_specific(config_filepath, controls, common_symbols, common_signals,
                 new_transition["Timeout"] = t["Timeout"]
             if "Fire" in t:
                 new_transition["Fire"] = sequences_id[t["Fire"]]
+            if "Freeze" in t:
+                new_transition["Freeze"] = t["Freeze"]
             new_state.append(new_transition)
         pre_computed_transitions.append(new_state)
     pre_computed["Transitions"] = pre_computed_transitions
