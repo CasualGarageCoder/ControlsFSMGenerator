@@ -747,11 +747,9 @@ def generate_specific(config_filepath, controls, common_symbols, common_signals,
                 control_order.remove(c)
             trigger["Pressed"] = new_controls[c]
 
-            sequence_freeze = False
             # Sequence progression.
             new_progress = states[current_state]["Progress"].copy()
             new_sequence = states[current_state]["Sequence"]
-            sequence_freeze = False
             if new_controls[c]:
                 if c in new_sequence:
                     if "Name" in new_sequence[c]:
@@ -773,8 +771,6 @@ def generate_specific(config_filepath, controls, common_symbols, common_signals,
                 else:
                     new_progress = []
                     new_sequence = sequences_tree
-                    sequence_freeze = False
-
 
             # State name building
             # Use order to generate new state depending on the activation order.

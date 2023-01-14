@@ -15,7 +15,7 @@ class IntermediateState:
 	var timer_reset : Array = [] # For each control move, a timer reset can occurs.
 	var timeout_route : int # Timer timeout escape. No change in controls.
 	var fire : Array = [] # Sequence Identifier. -1 if none.
-        var freeze : bool
+	var freeze : Array = [] # Movement suppressor
 
 class ControlSequence:
 	var duration : int = 0 # ms
@@ -70,6 +70,9 @@ onready var filtered_controls : Array
 # If true, special movements aren't tracked (hence nor triggered).
 onready var dampened : bool = false
 
+# If true, the action is freezed.
+onready var freezed : bool = false
+
 ## Initialisation. Read the JSON, collect and compute useful data.
 func _ready():
 	set_process(false)
@@ -116,7 +119,7 @@ func _ready():
 				state.access_name.append("")
 				state.fire.append(-1)
 				state.timer_reset.append([])
-                                state.freeze = false
+				state.freeze.append(false)
 			for i in t:
 				if "Name" in i:
 					state.state_name = i["Name"]
@@ -132,8 +135,8 @@ func _ready():
 					state.fire[i["Control"]] = i["Fire"]
 				if "Timer" in i:
 					state.timer_reset[i["Control"]].append(seq_count * 2)
-                                if "Freeze" in i:
-                                        state.freeze = i["Freeze"]
+				if "Freeze" in i:
+					state.freeze[i["Control"]] = i["Freeze"]
 			states.append(state)
 	else:
 		print("Unable to load file %s" % descriptor_filename)
@@ -163,13 +166,6 @@ func reset() -> void:
 func set_move(control : int, pressed : bool) -> void:
 	var filtered_control : int = filter_control(control, pressed)
 	var last_value : bool = current_control[filtered_control]
-	current_control[filtered_control] = pressed
-	if pressed:
-		last_pressed_control = filtered_control
-		last_control_pressed[filtered_control] = current_time
-	else:
-		last_pressed_control = 0
-		last_control_released[filtered_control] = current_time
 
 	if can_move() && (last_value != pressed):
 		for timer in states[current_state].timer_reset[filtered_control]:
@@ -191,10 +187,22 @@ func set_move(control : int, pressed : bool) -> void:
 		in_sequence = false
 		for i in range(sequence.size()):
 			in_sequence = in_sequence or timer_expire[i * 2] > 0
-		if override_sequence or (not in_sequence) or (not states[current_state].access[filtered_control].freeze):
+		var next_state : int = states[current_state].access[filtered_control]
+		if OS.is_debug_build():
+			print("(%d --(Control %s %s)--> %d)" % [current_state, filtered_control, "pressed" if pressed else "released", next_state])
+		if pressed:
+			freezed = states[current_state].freeze[filtered_control]
+		current_control[filtered_control] = pressed
+		if pressed:
+			last_pressed_control = filtered_control
+			last_control_pressed[filtered_control] = current_time
+		else:
+			last_pressed_control = 0
+			last_control_released[filtered_control] = current_time
+		if (override_sequence or (not in_sequence)) and (not freezed):
 			process_move(filtered_control, pressed)
 		# Switch to next state.
-		current_state = states[current_state].access[filtered_control]
+		current_state = next_state
 
 # Is the character in dead-zone.
 func is_in_sequence() -> bool:
@@ -217,6 +225,8 @@ func _process(delta : float):
 			on_timer_expire(i)
 			if i == sequence_timer_max: #  Sequence breaker timeout.
 				var next_state : int = states[current_state].timeout_route
+				if OS.is_debug_build():
+					print("(%d --(Timeout)--> %d)" % [current_state, next_state])
 				current_state = next_state
 			elif i < sequence_timer_max:
 				if i % 2 == 1: # Cooldown timer.
