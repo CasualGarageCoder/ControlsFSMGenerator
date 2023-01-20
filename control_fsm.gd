@@ -175,8 +175,10 @@ func set_move(control : int, pressed : bool) -> void:
 		if pressed and seq_id >= 0 and not dampened:
 			timer_expire[sequence.size() * 2] = -1
 			if timer_expire[(seq_id * 2) + 1] < 0: # If the timer is a cooldown, we don't activate special move.
-				timer_expire[seq_id * 2] = current_time + sequence[seq_id].duration
+				if sequence[seq_id].duration > 0:
+					timer_expire[seq_id * 2] = current_time + sequence[seq_id].duration
 				timer_expire[(seq_id * 2) + 1] = current_time + sequence[seq_id].cooldown
+				freezed = true
 				override_sequence = activate_sequence(seq_id, sequence[seq_id].duration, sequence[seq_id].cooldown)
 				invoke_decision_tree()
 				# Other cooldown inference
@@ -188,8 +190,6 @@ func set_move(control : int, pressed : bool) -> void:
 		for i in range(sequence.size()):
 			in_sequence = in_sequence or timer_expire[i * 2] > 0
 		var next_state : int = states[current_state].access[filtered_control]
-		if OS.is_debug_build():
-			print("(%d --(Control %s %s)--> %d)" % [current_state, filtered_control, "pressed" if pressed else "released", next_state])
 		if pressed:
 			freezed = states[current_state].freeze[filtered_control]
 		current_control[filtered_control] = pressed
@@ -225,8 +225,6 @@ func _process(delta : float):
 			on_timer_expire(i)
 			if i == sequence_timer_max: #  Sequence breaker timeout.
 				var next_state : int = states[current_state].timeout_route
-				if OS.is_debug_build():
-					print("(%d --(Timeout)--> %d)" % [current_state, next_state])
 				current_state = next_state
 			elif i < sequence_timer_max:
 				if i % 2 == 1: # Cooldown timer.
