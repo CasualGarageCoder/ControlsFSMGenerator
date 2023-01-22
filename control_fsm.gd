@@ -7,6 +7,9 @@ export(String) var descriptor_filename : String
 # Else, it indicates the progression of the cooldown for 1.0 to 0.0.
 signal sequence_readiness(sequence, progress)
 
+# Send a signal when an event occurs.
+signal process_event(event, pressed)
+
 class IntermediateState:
 	var state_name : String # State name
 	var access : Array = [] # In fact, we don't care about if the controls has been pressed or not
@@ -201,6 +204,7 @@ func set_move(control : int, pressed : bool) -> void:
 			last_control_released[filtered_control] = current_time
 		if (override_sequence or (not in_sequence)) and (not freezed):
 			process_move(filtered_control, pressed)
+			emit_signal("process_event", filtered_control, pressed)
 		# Switch to next state.
 		current_state = next_state
 
