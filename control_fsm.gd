@@ -150,6 +150,13 @@ func _ready():
 func get_sequence_count() -> int:
 	return sequence.size()
 
+func reset_controls() -> void:
+	for t in range(len(current_control)):
+		current_control[t] = false
+		last_control_pressed[t] = -1
+		last_control_pressed[t] = -1
+	last_pressed_control = 0
+
 # Reset the state machine.
 func reset() -> void:
 	set_process(false)
@@ -158,11 +165,7 @@ func reset() -> void:
 		if t < sequence_timer_max and t % 2 == 1:
 			emit_signal("sequence_readiness", (t - 1) / 2, 0.0)
 		timer_expire[t] = -1
-	for t in range(len(current_control)):
-		current_control[t] = false
-		last_control_pressed[t] = -1
-		last_control_pressed[t] = -1
-	last_pressed_control = 0
+	reset_controls()
 	set_process(true)
 
 # Entry point : Set the current control change.
@@ -183,7 +186,6 @@ func set_move(control : int, pressed : bool) -> void:
 				timer_expire[(seq_id * 2) + 1] = current_time + sequence[seq_id].cooldown
 				freezed = true
 				override_sequence = activate_sequence(seq_id, sequence[seq_id].duration, sequence[seq_id].cooldown)
-				invoke_decision_tree()
 				# Other cooldown inference
 				for i in sequence[seq_id].infer:
 					var id : int = int((i * 2) + 1)
@@ -203,6 +205,7 @@ func set_move(control : int, pressed : bool) -> void:
 			last_pressed_control = 0
 			last_control_released[filtered_control] = current_time
 		if (override_sequence or (not in_sequence)) and (not freezed):
+			invoke_decision_tree()
 			process_move(filtered_control, pressed)
 			emit_signal("process_event", filtered_control, pressed)
 		# Switch to next state.
@@ -219,11 +222,7 @@ func _process(delta : float):
 	for i in timer_expire.keys():
 		if timer_expire[i] > 0:
 			if i < sequence_timer_max and i % 2 == 1: # Cooldown timer.
-				# Compute progression.
-				var current : int = timer_expire[i]
-				var timeout : int = timer_timeout[i]
-				var progression : float = (timer_expire[i] - current_time) / float(timer_timeout[i])
-				emit_signal("sequence_readiness", (i - 1) / 2, progression)
+				emit_signal("sequence_readiness", (i - 1) / 2, (timer_expire[i] - current_time) / float(timer_timeout[i]))
 		if timer_expire[i] <= current_time and timer_expire[i] > 0:
 			timer_expire[i] = -1
 			on_timer_expire(i)
