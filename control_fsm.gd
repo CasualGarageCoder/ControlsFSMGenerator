@@ -12,8 +12,8 @@ signal process_event(event, pressed)
 
 class IntermediateState:
 	var state_name : String # State name
-	var access : Array = [] # In fact, we don't care about if the controls has been pressed or not
-	# because of the context.
+	var access : Array = []
+	var pressed : Array = []
 	var access_name : Array = [] # Purely for debug purpose.
 	var timer_reset : Array = [] # For each control move, a timer reset can occurs.
 	var timeout_route : int # Timer timeout escape. No change in controls.
@@ -76,6 +76,8 @@ onready var dampened : bool = false
 # If true, the action is freezed.
 onready var freezed : bool = false
 
+onready var start_date : int = -1
+
 ## Initialisation. Read the JSON, collect and compute useful data.
 func _ready():
 	set_process(false)
@@ -119,6 +121,7 @@ func _ready():
 			var state : IntermediateState = IntermediateState.new()
 			for _i in range(control_count+1):
 				state.access.append(0)
+				state.pressed.append(false)
 				state.access_name.append("")
 				state.fire.append(-1)
 				state.timer_reset.append([])
@@ -129,8 +132,10 @@ func _ready():
 					continue
 				var target_id = i["Target"]
 				if "Control" in i:
-					state.access[i["Control"]] = target_id
-					state.access_name[i["Control"]] = i["State"]
+					var control : int = i["Control"]
+					state.access[control] = target_id
+					state.pressed[control] = i["Pressed"]
+					state.access_name[control] = i["State"]
 				if "Timeout" in i:
 					# For now, we only consider the "SequenceTimer" timeout.
 					state.timeout_route = target_id
@@ -146,6 +151,12 @@ func _ready():
 		get_tree().quit(-1)
 	set_process(true)
 
+func set_start_date(duration : int) -> void:
+	start_date = current_time + duration
+
+func is_starting() -> bool:
+	return start_date > 0
+
 # Provide the number of sequences.
 func get_sequence_count() -> int:
 	return sequence.size()
@@ -153,7 +164,6 @@ func get_sequence_count() -> int:
 func reset_controls() -> void:
 	for t in range(len(current_control)):
 		current_control[t] = false
-		last_control_pressed[t] = -1
 		last_control_pressed[t] = -1
 	last_pressed_control = 0
 
@@ -173,12 +183,22 @@ func set_move(control : int, pressed : bool) -> void:
 	var filtered_control : int = filter_control(control, pressed)
 	var last_value : bool = current_control[filtered_control]
 
-	if can_move() && (last_value != pressed):
+	current_control[filtered_control] = pressed
+	if pressed:
+		last_pressed_control = filtered_control
+		last_control_pressed[filtered_control] = current_time
+	else:
+		last_pressed_control = 0
+		last_control_released[filtered_control] = current_time
+
+	if can_move():
+		if states[current_state].pressed[filtered_control] != pressed: # Uh oh ... We're out of the scope.
+			return
 		for timer in states[current_state].timer_reset[filtered_control]:
 			timer_expire[timer] = current_time + timer_timeout[timer]
 		var seq_id : int = states[current_state].fire[filtered_control]
 		var override_sequence : bool = true
-		if pressed and seq_id >= 0 and not dampened:
+		if pressed and seq_id >= 0 and (not dampened) and start_date < 0:
 			timer_expire[sequence.size() * 2] = -1
 			if timer_expire[(seq_id * 2) + 1] < 0: # If the timer is a cooldown, we don't activate special move.
 				if sequence[seq_id].duration > 0:
@@ -197,13 +217,6 @@ func set_move(control : int, pressed : bool) -> void:
 		var next_state : int = states[current_state].access[filtered_control]
 		if pressed:
 			freezed = states[current_state].freeze[filtered_control]
-		current_control[filtered_control] = pressed
-		if pressed:
-			last_pressed_control = filtered_control
-			last_control_pressed[filtered_control] = current_time
-		else:
-			last_pressed_control = 0
-			last_control_released[filtered_control] = current_time
 		if (override_sequence or (not in_sequence)) and (not freezed):
 			invoke_decision_tree()
 			process_move(filtered_control, pressed)
@@ -215,10 +228,17 @@ func set_move(control : int, pressed : bool) -> void:
 func is_in_sequence() -> bool:
 	return in_sequence
 
+func break_sequence() -> void:
+	var next_state : int = states[current_state].timeout_route
+	current_state = next_state
+	timer_expire[sequence_timer_max] = -1
+
 # Processing function. Deal with the different timeouts.
 # Uses delta to increment the current time. It's a quick alternative to OS calls.
 func _process(delta : float):
 	current_time += int(delta * 1000)
+	if current_time > start_date:
+		start_date = -1
 	for i in timer_expire.keys():
 		if timer_expire[i] > 0:
 			if i < sequence_timer_max and i % 2 == 1: # Cooldown timer.
@@ -227,8 +247,7 @@ func _process(delta : float):
 			timer_expire[i] = -1
 			on_timer_expire(i)
 			if i == sequence_timer_max: #  Sequence breaker timeout.
-				var next_state : int = states[current_state].timeout_route
-				current_state = next_state
+				break_sequence()
 			elif i < sequence_timer_max:
 				if i % 2 == 1: # Cooldown timer.
 					emit_signal("sequence_readiness", (i - 1) / 2, 0.0)
