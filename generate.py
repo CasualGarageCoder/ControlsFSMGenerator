@@ -200,7 +200,7 @@ def produce_readable_stack(stack):
     return result
 
 ######################## CREATE DECISION TREE ################################
-def create_decision_tree(total_rules, symbols_types, symbols_declared_types, config_name, common_signals, control_id, is_debug):
+def create_decision_tree(total_rules, symbols_types, symbols_declared_types, config_name, common_signals, control_id, is_debug, output_directory):
     if verbose_mode:
         print("## Symbols Types")
         pprint(symbols_types)
@@ -340,7 +340,7 @@ def create_decision_tree(total_rules, symbols_types, symbols_declared_types, con
                 prune.put(decision_tree) # Not optimal at all.
 
     if is_debug: # Generate the verbose debug JSON
-        with open("build/debug/decision_tree_%s.json" % config_name, "w") as out_json:
+        with open("%s/debug/decision_tree_%s.json" % (output_directory, config_name), "w") as out_json:
             file_content = json.dumps(decision_tree, indent=4)
             out_json.write(file_content)
             out_json.write("\n")
@@ -382,7 +382,7 @@ def create_decision_tree(total_rules, symbols_types, symbols_declared_types, con
                 branches.put(cursor["Values"][v])
 
     if is_debug: # Generate the dot.
-        with open("build/debug/decision_tree_%s.dot" % config_name, "w") as out_dot:
+        with open("%s/debug/decision_tree_%s.dot" % (output_directory, config_name), "w") as out_dot:
             # The decision tree has been cleared.
             node_id = 0
             out_dot.write("digraph G {\n")
@@ -458,7 +458,7 @@ def create_decision_tree(total_rules, symbols_types, symbols_declared_types, con
         print("## Flat Tree :")
         pprint(flat_tree)
 
-    with open("build/decision_tree_%s.gd" % config_name, "w") as out_gd:
+    with open("%s/decision_tree_%s.gd" % (output_directory, config_name), "w") as out_gd:
         ## Try to generate code
         ## Inside the stack, we'll position a decision tree node and a counter.
         stack = []
@@ -555,14 +555,14 @@ def create_decision_tree(total_rules, symbols_types, symbols_declared_types, con
                 # Don't forget to append the next statement/value
                 next_statement = { "Node" : statement["Values"][list(statement["Values"].keys())[value]], "Statement" : 0, "Value" : 0 }
                 stack.append(next_statement)
-            
+
         out_gd.close()
 
     return decision_tree
 
 ######################## END OF CREATE DECISION TREE ############################
 
-def generate_specific(config_filepath, controls, common_symbols, common_signals, common_groups, generate_debug):
+def generate_specific(config_filepath, controls, common_symbols, common_signals, common_groups, generate_debug, output_directory):
     control_id = {}
     for i in range(len(controls)):
         control_id[controls[i]] = i+1
@@ -854,7 +854,7 @@ def generate_specific(config_filepath, controls, common_symbols, common_signals,
     file_content = json.dumps(complete_content, indent=4)
 
     if generate_debug:
-        save_target = "build/debug/%s_fsm.json" % config_name
+        save_target = "%s/debug/%s_fsm.json" % (output_directory, config_name)
         with open(save_target, "w") as generated_file:
             generated_file.write(file_content)
             generated_file.close()
@@ -899,13 +899,13 @@ def generate_specific(config_filepath, controls, common_symbols, common_signals,
 
     file_content = json.dumps(pre_computed, indent=4)
 
-    save_target = "build/%s_fsm_pc.json" % config_name.lower()
+    save_target = "%s/%s_fsm_pc.json" % (output_directory, config_name.lower())
     with open(save_target, "w") as generated_file:
         generated_file.write(file_content)
         generated_file.close()
         print("Precomputed result stored in %s" % save_target)
 
-    with open("build/%s_controller.gd" % config_name.lower(), "w") as specific_constants:
+    with open("%s/%s_controller.gd" % (output_directory, config_name.lower()), "w") as specific_constants:
         name_tokens = config_name.split('_')
         specific_script_class_name = ''.join(e.title() for e in name_tokens)
         specific_constants.write("class_name %sCharacterController\n" % specific_script_class_name)
@@ -943,7 +943,7 @@ def generate_specific(config_filepath, controls, common_symbols, common_signals,
 
 
     if generate_debug:
-        with open("build/debug/%s_debug.dot" % config_name, "w") as debug_file:
+        with open("%s/debug/%s_debug.dot" % (output_directory, config_name), "w") as debug_file:
             debug_file.write("digraph debug_fsm {\n")
             debug_file.write("\tedge [arrowhead=normal, fontsize=6];\n")
             debug_file.write("\tnode [shape=box, fontsize=8];\n")
@@ -964,7 +964,7 @@ def generate_specific(config_filepath, controls, common_symbols, common_signals,
 
     # And finally, generate decision tree to generate the specific script.
     # We got all we need. The symbols, the triggers, the timers.
-    decision_tree = create_decision_tree(events, symbols_class, symbols_types, config_name, common_signals, control_id, generate_debug)
+    decision_tree = create_decision_tree(events, symbols_class, symbols_types, config_name, common_signals, control_id, generate_debug, output_directory)
     print("## Generated Decision Tree")
 
     # Find missing events.
@@ -985,7 +985,7 @@ def generate_specific(config_filepath, controls, common_symbols, common_signals,
         print("## Decision tree manage all the events.")
 
     # And now, we are ready to generate the specific script, the last thing we'll do here.
-    script_path = "build/%s_controller.gd" % config_name.lower()
+    script_path = "%s/%s_controller.gd" % (output_directory, config_name.lower())
     print("## Print specific controller script in : %s" % script_path)
     uconf_name = config_name.upper()
     with open(script_path, "a") as specific_script:
@@ -1037,7 +1037,7 @@ def generate_specific(config_filepath, controls, common_symbols, common_signals,
                 specific_script.write("func %s() -> %s:\n\treturn %s_v\n\n" % (s["Name"], symbols_class[s["Name"]].__name__, s["Name"]))
         # Decision tree !
         specific_script.write("func invoke_decision_tree() -> void:\n")
-        decision_tree_path = "build/decision_tree_%s.gd" % config_name
+        decision_tree_path = "%s/decision_tree_%s.gd" % (output_directory, config_name)
         with open(decision_tree_path, "r") as generated_dt:
             lines = generated_dt.readlines()
             for line in lines:
@@ -1163,10 +1163,10 @@ def generate_specific(config_filepath, controls, common_symbols, common_signals,
                 specific_script.write("func set_%s(var arg : %s) -> void:\n" % (s["Name"], symbols_class[s["Name"]].__name__))
                 specific_script.write("\tif arg != %s_v:\n\t\t%s_v = arg\n\t\tinvoke_decision_tree()\n\n" % (s["Name"], s["Name"]))
         specific_script.close()
-     
 
-def generate_main_constants(controls, common_symbols):
-    with open("build/global_controls.gd", "w") as global_constants_singleton:
+
+def generate_main_constants(controls, common_symbols, output_directory):
+    with open("%s/global_controls.gd" % output_directory, "w") as global_constants_singleton:
         global_constants_singleton.write("# Global constants for player controls identification\nextends Node\n\n")
         for c in range(len(controls)):
             global_constants_singleton.write("const PLAYER_CONTROL_%s : int = %d\n" % (controls[c].upper(), c+1))
@@ -1184,19 +1184,12 @@ def main():
     global_filepath = ""
     specific_filepaths = []
     generate_debug = False
+    output_directory = "build"
 
     try:
-        os.mkdir("build")
-    except OSError as error:
-        if error.errno != 17:
-            print("!!! Can't create build folder !!!")
-            print(error)
-            sys.exit(1)
-
-    try:
-        opts, args = getopt.getopt(sys.argv[1:],"vdg:s:P:")
+        opts, args = getopt.getopt(sys.argv[1:],"vdg:s:P:o:")
     except getopt.GetoptError:
-        print("%s -d -g [path_to_global_conf.json] -s [path_to_first_specific.json] -s ... -P [path_to_project_directory]" % sys.argv[0])
+        print("%s -d -g [path_to_global_conf.json] -s [path_to_first_specific.json] -s ... -P [path_to_project_directory] -o [output_directory]" % sys.argv[0])
         sys_exit(1)
     for opt, arg in opts:
         if opt == "-g":
@@ -1208,20 +1201,34 @@ def main():
         elif opt == "-v":
             print("## Activate Verbose Mode")
             verbose_mode = True
+        elif opt == "-o":
+            output_directory = arg
         elif opt == "-d":
-            try:
-                os.mkdir("build/debug")
-            except OSError as error:
-                if error.errno != 17:
-                    print("!!! Can't create debug folder !!!")
-                    print(error)
-                    sys.exit(1)
             generate_debug = True
+
+    try:
+        os.mkdir(output_directory)
+    except OSError as error:
+        if error.errno != 17:
+            print("!!! Can't create build folder !!!")
+            print(error)
+            sys.exit(1)
+
+    if generate_debug:
+        try:
+            os.mkdir("%s/debug" % (output_directory))
+        except OSError as error:
+            if error.errno != 17:
+                print("!!! Can't create debug folder !!!")
+                print(error)
+                sys.exit(1)
+
 
     if global_filepath in specific_filepaths:
         specific_filepaths.remove(global_filepath)
     print("Global Filepath = '%s'" % global_filepath)
     print("Specific Filepaths = '%s'" % specific_filepaths)
+    print("Output directory : %s" % output_directory)
 
     controls = []
     common_symbols = []
@@ -1236,11 +1243,11 @@ def main():
         common_signals = configuration["Signals"]
         common_groups = configuration["Groups"]
 
-    generate_main_constants(controls, common_symbols)
+    generate_main_constants(controls, common_symbols, output_directory)
 
     for filepath in specific_filepaths:
         print("Read '%s'" % filepath)
-        generate_specific(filepath, controls, common_symbols, common_signals, common_groups, generate_debug)
+        generate_specific(filepath, controls, common_symbols, common_signals, common_groups, generate_debug, output_directory)
 
 if __name__ == "__main__":
     main()
