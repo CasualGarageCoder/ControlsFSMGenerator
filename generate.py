@@ -562,7 +562,7 @@ def create_decision_tree(total_rules, symbols_types, symbols_declared_types, con
 
 ######################## END OF CREATE DECISION TREE ############################
 
-def generate_specific(config_filepath, controls, common_symbols, common_signals, common_groups, generate_debug, output_directory):
+def generate_specific(config_filepath, controls, common_symbols, common_signals, common_groups, common_defaults, common_variables, generate_debug, output_directory):
     control_id = {}
     for i in range(len(controls)):
         control_id[controls[i]] = i+1
@@ -576,6 +576,8 @@ def generate_specific(config_filepath, controls, common_symbols, common_signals,
         control_triggered_symbols = {}
         process_triggered_symbols = []
         can_move_conditions = {}
+        default_evaluations = common_defaults.copy()
+        local_variables = common_variables.copy()
         # Command line arguments are controls.
         with open(config_filepath, "r") as config_file:
             configuration = json.load(config_file)
@@ -589,6 +591,10 @@ def generate_specific(config_filepath, controls, common_symbols, common_signals,
             process_triggered_symbols = configuration["Rules"]["Frame"]
             control_triggered_symbols = configuration["Rules"]["Trigger"]
             can_move_conditions = configuration["Rules"]["Controlable"]
+            if "Defaults" in configuration:
+                default_evaluations.update(configuration["Defaults"])
+            if "Variables" in configuration:
+                local_variables.update(configuration["Variables"])
 
         # Determine events condition tree
 
@@ -1002,7 +1008,13 @@ def generate_specific(config_filepath, controls, common_symbols, common_signals,
         for g in common_groups:
             specific_script.write("onready var controlled_node_%s\n" % (g.lower()))
         specific_script.write("\n")
+        # All local variables
+        specific_script.write("# Local Variables\n")
+        for s in local_variables:
+            specific_script.write("var %s : %s\n" % (s, local_variables[s]))
+        specific_script.write("\n")
         # All symbols
+        specific_script.write("# Decision tree symbols\n")
         for s in symbols:
             if not s["Type"] == "Timer":
                 # Compute default value.
@@ -1155,13 +1167,17 @@ def generate_specific(config_filepath, controls, common_symbols, common_signals,
         # All the evaluation and setting functions.
         for s in symbols:
             specific_script.write("func evaluate_%s() -> %s:\n" % (s["Name"], symbols_class[s["Name"]].__name__))
-            if symbols_class[s["Name"]] == bool:
-                specific_script.write("\treturn false\n\n")
+            if s["Name"] in default_evaluations:
+                specific_script.write(default_evaluations[s["Name"]])
+                specific_script.write("\n\n")
             else:
-                specific_script.write("\treturn 0\n\n")
-            if symbols_types[s["Name"]] != "Timer":
-                specific_script.write("func set_%s(var arg : %s) -> void:\n" % (s["Name"], symbols_class[s["Name"]].__name__))
-                specific_script.write("\tif arg != %s_v:\n\t\t%s_v = arg\n\t\tinvoke_decision_tree()\n\n" % (s["Name"], s["Name"]))
+                if symbols_class[s["Name"]] == bool:
+                    specific_script.write("\treturn false\n\n")
+                else:
+                    specific_script.write("\treturn 0\n\n")
+                if symbols_types[s["Name"]] != "Timer":
+                    specific_script.write("func set_%s(var arg : %s) -> void:\n" % (s["Name"], symbols_class[s["Name"]].__name__))
+                    specific_script.write("\tif arg != %s_v:\n\t\t%s_v = arg\n\t\tinvoke_decision_tree()\n\n" % (s["Name"], s["Name"]))
         specific_script.close()
 
 
@@ -1234,6 +1250,8 @@ def main():
     common_symbols = []
     common_signals = {}
     common_groups = []
+    common_defaults = {}
+    common_variables = {}
 
     with open(global_filepath, "r") as config_file:
         configuration = json.load(config_file)
@@ -1242,12 +1260,16 @@ def main():
         common_symbols = configuration["Symbols"]
         common_signals = configuration["Signals"]
         common_groups = configuration["Groups"]
+        if "Variables" in configuration:
+            common_variables = configuration["Variables"]
+        if "Defaults" in configuration:
+            common_defaults = configuration["Defaults"]
 
     generate_main_constants(controls, common_symbols, output_directory)
 
     for filepath in specific_filepaths:
         print("Read '%s'" % filepath)
-        generate_specific(filepath, controls, common_symbols, common_signals, common_groups, generate_debug, output_directory)
+        generate_specific(filepath, controls, common_symbols, common_signals, common_groups, common_defaults, common_variables, generate_debug, output_directory)
 
 if __name__ == "__main__":
     main()
