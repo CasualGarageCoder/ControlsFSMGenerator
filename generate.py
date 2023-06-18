@@ -622,7 +622,7 @@ def generate_specific(config_filepath, controls, common_symbols, common_signals,
             declared_type = symbols_types[condition_symbol]
             if (((declared_type == "bool" or declared_type == "Timer") and (not type_to_check is bool)) or 
                     (declared_type == "Control" and (not (type_to_check is str and event_conditions[condition_symbol] in controls)))):
-                print("!!! In event '%s', condition symbol '%s' type mismatch !!!" % (event, condition_symbol))
+                print("!!! In event '%s', condition symbol '%s' type mismatch !!! (should be %s but is %s)" % (event, condition_symbol, declared_type, type_to_check))
                 sys.exit(1)
 
     ## TODO Verify "Effects" validity too.
