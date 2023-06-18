@@ -1011,7 +1011,14 @@ def generate_specific(config_filepath, controls, common_symbols, common_signals,
         # All local variables
         specific_script.write("# Local Variables\n")
         for s in local_variables:
-            specific_script.write("var %s : %s\n" % (s, local_variables[s]))
+            if "onready" in local_variables[s] and local_variables[s]["onready"]:
+                specific_script.write("onready ");
+            specific_script.write("var %s" % (s))
+            if "type" in local_variables[s]:
+                specific_script.write(" : %s" % (local_variables[s]["type"]))
+            if "value" in local_variables[s]:
+                specific_script.write(" = %s" % (local_variables[s]["value"]))
+            specific_script.write("\n")
         specific_script.write("\n")
         # All symbols
         specific_script.write("# Decision tree symbols\n")
