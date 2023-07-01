@@ -76,7 +76,11 @@ onready var dampened : bool = false
 # If true, the action is freezed.
 onready var freezed : bool = false
 
+# Event start date (in ms).
 onready var start_date : int = -1
+
+# Sequence active.
+onready var sequence_active : bool = true # TODO Turn this to false and implement beacons.
 
 ## Initialisation. Read the JSON, collect and compute useful data.
 func _ready():
@@ -198,7 +202,7 @@ func set_move(control : int, pressed : bool) -> void:
 			timer_expire[timer] = current_time + timer_timeout[timer]
 		var seq_id : int = states[current_state].fire[filtered_control]
 		var override_sequence : bool = true
-		if pressed and seq_id >= 0 and (not dampened) and start_date < 0:
+		if pressed and seq_id >= 0 and (not dampened) and start_date < 0 and sequence_active:
 			timer_expire[sequence.size() * 2] = -1
 			if timer_expire[(seq_id * 2) + 1] < 0: # If the timer is a cooldown, we don't activate special move.
 				if sequence[seq_id].duration > 0:
@@ -206,6 +210,7 @@ func set_move(control : int, pressed : bool) -> void:
 				timer_expire[(seq_id * 2) + 1] = current_time + sequence[seq_id].cooldown
 				freezed = true
 				override_sequence = activate_sequence(seq_id, sequence[seq_id].duration, sequence[seq_id].cooldown)
+				emit_signal("sequence_readiness", seq_id, 1.0)
 				# Other cooldown inference
 				for i in sequence[seq_id].infer:
 					var id : int = int((i * 2) + 1)
@@ -218,7 +223,7 @@ func set_move(control : int, pressed : bool) -> void:
 		if pressed:
 			freezed = states[current_state].freeze[filtered_control]
 		if (override_sequence or (not in_sequence)) and (not freezed):
-			invoke_decision_tree()
+#			invoke_decision_tree()
 			process_move(filtered_control, pressed)
 			emit_signal("process_event", filtered_control, pressed)
 		# Switch to next state.
