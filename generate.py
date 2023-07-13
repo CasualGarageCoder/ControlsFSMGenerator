@@ -8,7 +8,6 @@ import copy
 from random import randint
 from pprint import pprint
 import getopt
-import collections.abc
 
 verbose_mode = False
 
