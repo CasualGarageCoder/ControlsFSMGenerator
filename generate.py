@@ -8,6 +8,7 @@ import copy
 from random import randint
 from pprint import pprint
 import getopt
+import collections.abc
 
 verbose_mode = False
 
@@ -1175,8 +1176,8 @@ def generate_specific(config_filepath, controls, common_symbols, common_signals,
         for s in symbols:
             specific_script.write("func evaluate_%s() -> %s:\n" % (s["Name"], symbols_class[s["Name"]].__name__))
             if s["Name"] in default_evaluations:
-                specific_script.write(default_evaluations[s["Name"]])
-                specific_script.write("\n\n")
+                write_code(specific_script, 1, default_evaluations[s["Name"]])
+                specific_script.write("\n")
             else:
                 if symbols_class[s["Name"]] == bool:
                     specific_script.write("\treturn false\n\n")
@@ -1188,6 +1189,14 @@ def generate_specific(config_filepath, controls, common_symbols, common_signals,
                 specific_script.write("\tif arg != %s_v:\n\t\t%s_v = arg\n\t\tinvoke_decision_tree()\n\n" % (s["Name"], s["Name"]))
         specific_script.close()
 
+def write_code(script_file, level, lines):
+    for l in lines:
+        if type(l) == str:
+            script_file.write("%s%s\n" % ("\t" * level, l))
+        elif type(l) == list:
+            write_code(script_file, level + 1, l)
+        else:
+            print("!! Invalid kind of script %s" % (str(type(l))))
 
 def generate_main_constants(controls, common_symbols, output_directory):
     with open("%s/global_controls.gd" % output_directory, "w") as global_constants_singleton:
