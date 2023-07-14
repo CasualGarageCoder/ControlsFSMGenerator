@@ -8,25 +8,23 @@ import copy
 from pprint import pprint
 import getopt
 
-verbose_mode = False
+VERBOSE_MODE = False
 
 type_to_class = {"bool": bool, "Timer": bool, "Control": int}
 
 
 def log_verbose(message):
-    if verbose_mode:
+    if VERBOSE_MODE:
         print(message)
 
 
 def sort_counters_dict(dictionary):
-    return {
-        k: v for k, v in sorted(dictionary.items(), key=lambda a: a[1], reverse=True)
-    }
+    return {dict(sorted(dictionary.items(), key=lambda a: a[1], reverse=True))}
 
 
-def find_symbol(t, symb):
-    for s in symb:
-        if t == s["Name"]:
+def find_symbol(typ, symbols):
+    for symbol in symbols:
+        if typ == symbol["Name"]:
             return True
     return False
 
@@ -44,7 +42,7 @@ def evaluate_symbols(
     for s in symbols:
         if symbols_types[s] == "Timer":
             specific_script.write(
-                "%sinvoke = invoke || %sevaluate_%s()\n" % (prefix, evaluate_prefix, s)
+                f"{prefix}invoke = invoke || {evaluate_prefix}evaluate_{s}()\n"
             )
         else:
             specific_script.write(
@@ -260,7 +258,7 @@ def create_decision_tree(
     is_debug,
     output_directory,
 ):
-    if verbose_mode:
+    if VERBOSE_MODE:
         print("## Symbols Types")
         pprint(symbols_types)
         print("## Rule set")
@@ -289,7 +287,7 @@ def create_decision_tree(
         history = cursor["History"]
         current_rules = retrieve_rules(total_rules, history)
         current_symbols_occurrence = retrieve_symbols(current_rules, history)
-        if verbose_mode:
+        if VERBOSE_MODE:
             print("# New Iteration %s" % history)
             print("## Constrained rule set")
             pprint(current_rules)
@@ -353,13 +351,13 @@ def create_decision_tree(
                             value_per_candidate[a].add(
                                 current_rules[c]["Conditions"][a]
                             )
-                if verbose_mode:
+                if VERBOSE_MODE:
                     pprint(value_per_candidate)
                 card_per_candidate = dict(
                     {(k, len(v)) for (k, v) in value_per_candidate.items()}
                 )
                 sorted_card = sort_counters_dict(card_per_candidate)
-                if verbose_mode:
+                if VERBOSE_MODE:
                     print("## Cardinality per candidate")
                     print(sorted_card)
                 choosen_attribute = list(sorted_card.keys())[
@@ -386,14 +384,14 @@ def create_decision_tree(
                 )
                 branches.put(new_cursor)
     if event_count == 0:
-        if verbose_mode:
+        if VERBOSE_MODE:
             print("!!! Internal Error : No event matched !!!")
             pprint(decision_tree)
         sys.exit(1)
     if prune_count > 0:
         log_verbose("!!! %d branches to prune !!!" % prune_count)
         # Let's do this.
-        if verbose_mode:
+        if VERBOSE_MODE:
             pprint(decision_tree)
         prune = queue.Queue()
         prune.put(decision_tree)
@@ -547,7 +545,7 @@ def create_decision_tree(
                 symbols_types[cursor["Attributes"]] == bool
                 and len(new_decision["Values"]) == 2
             ):
-                if verbose_mode:
+                if VERBOSE_MODE:
                     print("## Sorting boolean values.")
                     print("## %s" % new_decision["Values"].keys())
                 falseValue = new_decision["Values"][False]
@@ -556,7 +554,7 @@ def create_decision_tree(
             cursor["Flat"].append(new_decision)
         else:
             print("!!! Internal error. Such a node should not exists !!!")
-    if verbose_mode:
+    if VERBOSE_MODE:
         print("## Flat Tree :")
         pprint(flat_tree)
 
@@ -568,7 +566,7 @@ def create_decision_tree(
         stack = []
         stack.append({"Node": flat_tree, "Statement": 0, "Value": 0})
         while len(stack) > 0:
-            if verbose_mode:
+            if VERBOSE_MODE:
                 print("## --------------------------")
                 print(produce_readable_stack(stack))
                 print("### -------------------------")
@@ -887,7 +885,7 @@ def generate_specific(
             cursor_node["Duration"] = s["Duration"]
             cursor_node["Cooldown"] = s["Cooldown"]
 
-    if verbose_mode:
+    if VERBOSE_MODE:
         print("## The sequence tree has been correctly defined has follow")
         pprint(sequences_tree)
 
@@ -918,7 +916,7 @@ def generate_specific(
 
     while not state_seeds.empty():
         current_state = state_seeds.get()
-        if verbose_mode:
+        if VERBOSE_MODE:
             print("-------------")
             print("Expand '%s' state" % current_state)
 
@@ -1032,7 +1030,7 @@ def generate_specific(
             if not found:
                 states[current_state]["Transitions"].append(trigger)
 
-    if verbose_mode:
+    if VERBOSE_MODE:
         print("--- End of Computation ---")
         print("There is %d states" % len(states))
 
@@ -1615,7 +1613,7 @@ def generate_main_constants(controls, common_symbols, output_directory):
 
 
 def main():
-    global verbose_mode
+    global VERBOSE_MODE
     global_filepath = ""
     specific_filepaths = []
     generate_debug = False
@@ -1646,7 +1644,7 @@ def main():
             ]
         elif opt == "-v":
             print("## Activate Verbose Mode")
-            verbose_mode = True
+            VERBOSE_MODE = True
         elif opt == "-o":
             output_directory = arg
         elif opt == "-d":
