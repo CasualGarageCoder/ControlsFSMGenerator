@@ -130,7 +130,7 @@ def compute_attributes_from_rules(current_rules):
     attributes = []
     for c in current_rules:
         for a in current_rules[c]["Conditions"]:
-            if current_rules[c]["Conditions"][a] != None:
+            if current_rules[c]["Conditions"][a] is not None:
                 attributes.append(a)
     return set(attributes)
 
@@ -168,7 +168,7 @@ def retrieve_rules(current_rules, attributes_values):
         for a in attributes_values:
             attribute_name = a["Attribute"]
             attribute_value = a["Value"]
-            if not attribute_name in condition:
+            if attribute_name not in condition:
                 compatible = False
                 break
             stored_value = condition[attribute_name]
@@ -185,7 +185,7 @@ def compute_highest(computed_values):
     candidates_attributes = []
     candidate_value = None
     for candidate in computed_values:
-        if candidate_value == None:
+        if candidate_value is None:
             candidate_value = computed_values[candidate]
             candidates_attributes.append(candidate)
         elif candidate_value == computed_values[candidate]:
@@ -209,7 +209,7 @@ def retrieve_symbols(current_rules, history):
         for a in current_rules[c]["Conditions"]:
             if is_in_history(a, history):
                 continue
-            if not a in symbols:
+            if a not in symbols:
                 symbols[a] = []
                 symbols[a].append(None)
             if not current_rules[c]["Conditions"][a] in symbols[a]:
@@ -250,7 +250,7 @@ def produce_readable_stack(stack):
     return result
 
 
-######################## CREATE DECISION TREE ################################
+# Create decision tree
 def create_decision_tree(
     total_rules,
     symbols_types,
@@ -328,10 +328,10 @@ def create_decision_tree(
                 for a in current_rules[c]["Conditions"]:
                     if (
                         is_in_history(a, cursor["History"])
-                        or current_rules[c]["Conditions"][a] == None
+                        or current_rules[c]["Conditions"][a] is None
                     ):
                         continue
-                    if not a in symbol_count:
+                    if a not in symbol_count:
                         symbol_count[a] = 1
                     else:
                         symbol_count[a] += 1
@@ -350,7 +350,7 @@ def create_decision_tree(
                     for a in current_rules[c]["Conditions"]:
                         if (
                             a in candidates
-                            and current_rules[c]["Conditions"][a] != None
+                            and current_rules[c]["Conditions"][a] is not None
                         ):
                             value_per_candidate[a].add(
                                 current_rules[c]["Conditions"][a]
@@ -427,7 +427,7 @@ def create_decision_tree(
 
     # And now decision tree compression. All those "None" value can be transformed in 'or' statement
     # fallthrough.
-    ## First, remove history.
+    # First, remove history.
     log_verbose("### Remove History")
     branches.put(decision_tree)
     while not branches.empty():
@@ -437,7 +437,7 @@ def create_decision_tree(
         if "Values" in cursor:
             for v in cursor["Values"]:
                 branches.put(cursor["Values"][v])
-    ## Second, shorten None branching.
+    # Second, shorten None branching.
     log_verbose("### Remove 'None' thread")
     branches.put(decision_tree)
     while not branches.empty():
@@ -529,7 +529,7 @@ def create_decision_tree(
     while not branches.empty():
         cursor = branches.get()
         # New node from the old decision tree structure.
-        ## First, replicate it.
+        # First, replicate it.
         if "Event" in cursor:
             new_decision = {"Event": cursor["Event"]}
             cursor["Flat"].append(new_decision)
@@ -537,7 +537,7 @@ def create_decision_tree(
             new_decision = {"Attributes": cursor["Attributes"], "Values": {}}
             # Time to sort values in case of booleans. True first, then false.
             for v in cursor["Values"]:
-                if v == None:
+                if v is None:
                     none_cursor = cursor["Values"][None]
                     branches.put(none_cursor)
                     none_cursor["Flat"] = cursor["Flat"]
@@ -565,8 +565,8 @@ def create_decision_tree(
     with open(
         "%s/decision_tree_%s.gd" % (output_directory, config_name), "w"
     ) as out_gd:
-        ## Try to generate code
-        ## Inside the stack, we'll position a decision tree node and a counter.
+        # Try to generate code
+        # Inside the stack, we'll position a decision tree node and a counter.
         stack = []
         stack.append({"Node": flat_tree, "Statement": 0, "Value": 0})
         specific_identifier = config_name.upper()
@@ -688,18 +688,14 @@ def create_decision_tree(
                     if (
                         symbols_declared_types[statement["Attributes"]] == "bool"
                     ):  # Boolean
-                        negate = (
-                            "!" if list(statement["Values"].keys())[0] == False else ""
-                        )
+                        negate = "!" if not list(statement["Values"].keys())[0] else ""
                         write_indent(
                             out_gd,
                             len(stack),
                             "if %s%s_v:" % (negate, statement["Attributes"]),
                         )
                     elif symbols_declared_types[statement["Attributes"]] == "Timer":
-                        negate = (
-                            "!" if list(statement["Values"].keys())[0] == False else ""
-                        )
+                        negate = "!" if not list(statement["Values"].keys())[0] else ""
                         write_indent(
                             out_gd,
                             len(stack),
@@ -738,9 +734,6 @@ def create_decision_tree(
         out_gd.close()
 
     return decision_tree
-
-
-######################## END OF CREATE DECISION TREE ############################
 
 
 def generate_specific(
@@ -809,12 +802,12 @@ def generate_specific(
         symbols_types[symbol_name] = symbol_type
 
     # Using the events, build the decision tree.
-    ## First, verify that the symbols of the conditions exist.
+    # First, verify that the symbols of the conditions exist.
     for event in events:
         event_conditions = events[event]["Conditions"]
         for condition_symbol in event_conditions:
             # Existence check
-            if not condition_symbol in symbols_types:
+            if condition_symbol not in symbols_types:
                 print(
                     "!!! In event '%s', condition symbol '%s' is not defined !!!"
                     % (event, condition_symbol)
@@ -825,7 +818,7 @@ def generate_specific(
             declared_type = symbols_types[condition_symbol]
             if (
                 (declared_type == "bool" or declared_type == "Timer")
-                and (not type_to_check is bool)
+                and (type_to_check is not bool)
             ) or (
                 declared_type == "Control"
                 and (
@@ -841,28 +834,24 @@ def generate_specific(
                 )
                 sys.exit(1)
 
-    ## TODO Verify "Effects" validity too.
-
-    ## Change the Control type to 'int'.
+    # Change the Control type to 'int'.
     for event in events:
         for attr in events[event]["Conditions"]:
             if (
                 symbols_types[attr] == "Control"
-                and events[event]["Conditions"][attr] != None
+                and events[event]["Conditions"][attr] is not None
             ):
                 events[event]["Conditions"][attr] = control_id[
                     events[event]["Conditions"][attr]
                 ]
-    ## Complete rules with "None".
+    # Complete rules with "None".
     for event in events:
         for attr in symbols_types:
-            if not attr in events[event]["Conditions"]:
+            if attr not in events[event]["Conditions"]:
                 events[event]["Conditions"][attr] = None
 
-    ## Create the symbol->type mapping
+    # Create the symbol->type mapping
     symbols_class = dict((k, type_to_class[v]) for (k, v) in symbols_types.items())
-
-    ## Finite State Machine
 
     # Sequences define a tree. Each leaf is a special movement.
     sequences_tree = {}
@@ -875,12 +864,12 @@ def generate_specific(
         else:
             freeze = False
         for key in controls_sequence:
-            if not key in controls:
+            if key not in controls:
                 print(
                     "!!! The sequence control '%s' is not a declared control !!!" % key
                 )
                 sys.exit(-1)
-            if not key in cursor_node:
+            if key not in cursor_node:
                 cursor_node[key] = {"Freeze": freeze}
             elif "Name" in cursor_node[key]:
                 print(
@@ -936,16 +925,16 @@ def generate_specific(
             print("-------------")
             print("Expand '%s' state" % current_state)
 
-        ## Timeout management.
-        ## It is actually pretty easy as we only have one timer.
-        ## We just need to go to the state without any sequence.
+        # Timeout management.
+        # It is actually pretty easy as we only have one timer.
+        # We just need to go to the state without any sequence.
         if len(states[current_state]["Progress"]) > 0:
             target_name = "_".join(states[current_state]["Pressed"])
             if target_name == "":
                 target_name = "Idle"
             trigger = {"Timeout": "SequenceTimer", "Target": target_name}
             states[current_state]["Transitions"].append(trigger)
-            if not target_name in states:
+            if target_name not in states:
                 states[target_name] = {
                     "Transitions": [],
                     "Pressed": states[current_state]["Pressed"],
@@ -956,7 +945,7 @@ def generate_specific(
                 }
                 state_seeds.put(target_name)
 
-        ## Controls management.
+        # Controls management.
         log_verbose("-? Controls order : %s" % states[current_state]["Pressed"])
         current_state_controls = states[current_state]["Controls"]
         # We can change only one control at a time
@@ -1165,7 +1154,7 @@ def generate_specific(
         )
         timers_identifier["SEQUENCE"] = len(sequences_list) * 2
         count = len(sequences_list) * 2 + 1
-        ## Add timer symbols
+        # Add timer symbols
         for s in symbols:
             if s["Type"] == "Timer":
                 specific_constants.write(
@@ -1173,7 +1162,7 @@ def generate_specific(
                 )
                 timers_identifier[s["Name"].upper()] = count
                 count += 1
-        ## And timer name to identifier dictionary
+        # And timer name to identifier dictionary
         specific_constants.write(
             "const TIMERS_IDENTIFIER : Dictionary = %s\n" % (timers_identifier)
         )
@@ -1593,13 +1582,13 @@ def generate_specific(
 
 
 def write_code(script_file, level, lines):
-    for l in lines:
-        if type(l) == str:
-            script_file.write("%s%s\n" % ("\t" * level, l))
-        elif type(l) == list:
-            write_code(script_file, level + 1, l)
+    for statement in lines:
+        if type(statement) == str:
+            script_file.write("%s%s\n" % ("\t" * level, statement))
+        elif type(statement) == list:
+            write_code(script_file, level + 1, statement)
         else:
-            print("!! Invalid kind of script %s" % (str(type(l))))
+            print("!! Invalid kind of script %s" % (str(type(statement))))
 
 
 def generate_main_constants(controls, common_symbols, output_directory):
@@ -1622,7 +1611,7 @@ def generate_main_constants(controls, common_symbols, output_directory):
         global_constants_singleton.close()
 
 
-## Main ##
+# Main
 
 
 def main():
