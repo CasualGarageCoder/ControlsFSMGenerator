@@ -5,7 +5,6 @@ import sys
 import json
 import queue
 import copy
-from random import randint
 from pprint import pprint
 import getopt
 
@@ -269,7 +268,6 @@ def create_decision_tree(
     # rules = dictionary of rules
     # attributes = all the attributes in the rules with name and types.
     branches = queue.Queue()
-    current_branch = None
     decision_tree = {"History": []}
     # Decision_tree structure will be:
     # {
@@ -569,7 +567,6 @@ def create_decision_tree(
         # Inside the stack, we'll position a decision tree node and a counter.
         stack = []
         stack.append({"Node": flat_tree, "Statement": 0, "Value": 0})
-        specific_identifier = config_name.upper()
         while len(stack) > 0:
             if verbose_mode:
                 print("## --------------------------")
@@ -1244,7 +1241,6 @@ def generate_specific(
     # And now, we are ready to generate the specific script, the last thing we'll do here.
     script_path = "%s/%s_controller.gd" % (output_directory, config_name.lower())
     print("## Print specific controller script in : %s" % script_path)
-    uconf_name = config_name.upper()
     with open(script_path, "a") as specific_script:
         specific_script.write("\n\n")
         # All signals
