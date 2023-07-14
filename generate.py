@@ -19,7 +19,7 @@ def log_verbose(message):
 
 
 def sort_counters_dict(dictionary):
-    return {dict(sorted(dictionary.items(), key=lambda a: a[1], reverse=True))}
+    return dict(sorted(dictionary.items(), key=lambda a: a[1], reverse=True))
 
 
 def find_symbol(typ, symbols):
