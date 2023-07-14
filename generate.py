@@ -1500,7 +1500,11 @@ def generate_specific(
                 )
             elif s["Type"] == "Control":
                 specific_script.write(
-                    '\tprint("%s = %%s" %% (GlobalControls.PLAYER_CONTROLS_DESCRIPTION[%s_v - 1] if %s_v > 0 else "None"))\n'
+                    (
+                        '\tprint("%s = %%s" %% '
+                        "(GlobalControls.PLAYER_CONTROLS_DESCRIPTION[%s_v - 1]"
+                        ' if %s_v > 0 else "None"))\n'
+                    )
                     % (s["Name"], s["Name"], s["Name"])
                 )
             else:
@@ -1625,10 +1629,15 @@ def main():
         opts, args = getopt.getopt(sys.argv[1:], "vdg:s:P:o:")
     except getopt.GetoptError:
         print(
-            "%s -d -g [path_to_global_conf.json] -s [path_to_first_specific.json] -s ... -P [path_to_project_directory] -o [output_directory]"
+            (
+                "%s -d -g [path_to_global_conf.json] "
+                "-s [path_to_first_specific.json] "
+                "-s ... -P [path_to_project_directory] "
+                "-o [output_directory]"
+            )
             % sys.argv[0]
         )
-        sys_exit(1)
+        sys.exit(1)
     for opt, arg in opts:
         if opt == "-g":
             global_filepath = arg
