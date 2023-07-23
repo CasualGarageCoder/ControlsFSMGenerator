@@ -80,7 +80,7 @@ onready var freezed : bool = false
 onready var start_date : int = -1
 
 # Sequence active.
-onready var sequence_active : bool = true # TODO Turn this to false and implement beacons.
+onready var sequence_active : bool = false
 
 ## Initialisation. Read the JSON, collect and compute useful data.
 func _ready():
@@ -171,14 +171,18 @@ func reset_controls() -> void:
 		last_control_pressed[t] = -1
 	last_pressed_control = 0
 
-# Reset the state machine.
-func reset() -> void:
-	set_process(false)
-	current_state = starting_state
+# Reset the timers.
+func reset_timers() -> void:
 	for t in range(len(timer_expire)):
 		if t < sequence_timer_max and t % 2 == 1:
 			emit_signal("sequence_readiness", (t - 1) / 2, 0.0)
 		timer_expire[t] = -1
+
+# Reset the state machine.
+func reset() -> void:
+	set_process(false)
+	current_state = starting_state
+	reset_timers()
 	reset_controls()
 	set_process(true)
 
@@ -268,7 +272,11 @@ func trigger_timer(timer : int, override : bool = false) -> bool:
 	if current_time < timer_expire[timer] and !override:
 		return false
 	timer_expire[timer] = current_time + timer_timeout[timer]
+	
 	return true
+
+func start_time(_timer : int, _override : bool) -> void:
+	pass
 
 # Force end timer.
 func reset_timer(timer : int) -> void:
