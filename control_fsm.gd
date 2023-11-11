@@ -176,7 +176,8 @@ func reset_timers() -> void:
 	for t in range(len(timer_expire)):
 		if t < sequence_timer_max and t % 2 == 1:
 			emit_signal("sequence_readiness", (t - 1) / 2, 0.0)
-		timer_expire[t] = -1
+		if t >= sequence_timer_max or t % 2 == 1:
+			reset_timer(t)
 
 # Reset the state machine.
 func reset() -> void:
