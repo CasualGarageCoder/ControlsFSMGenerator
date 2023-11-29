@@ -731,6 +731,43 @@ def create_decision_tree(
     return decision_tree
 
 
+def generate_save_load(
+    file_write,
+    input_symbols
+):
+    timers = []
+    variables = []
+    for s in input_symbols:
+        if s["Type"] == "Timer":
+            timers.append(s["Name"])
+        else:
+            variables.append(s["Name"])
+
+    # Save State
+    file_write.write("func save_state() -> Dictionary:\n")
+    file_write.write("\tvar timers : Dictionary = {}\n")
+    for t in timers:
+        file_write.write('\ttimers["%s"] = timer_expire[%s_TIMER]\n' % ( t, t.upper() ))
+    file_write.write("\tvar variables : Dictionary = {}\n")
+    for v in variables:
+        file_write.write('\tvariables["%s"] = %s_v\n' % ( v, v ))
+    file_write.write("\tvar saved_status : Dictionary = {}\n")
+    file_write.write('\tsaved_status["timers"] = timers\n\tsaved_status["variables"] = variables\n\treturn saved_status\n\n')
+
+    # Load State
+    file_write.write("func load_state(dict_state : Dictionary) -> void:\n")
+    file_write.write('\tif not(dict_state.has("timers") and dict_state.has("variables")):\n')
+    file_write.write('\t\tprint("Invalid status store ! Should never happen. Contact devs.")\n')
+    file_write.write('\t\tprint_debug()\n\t\tprint_stack()\n')
+    file_write.write('\t\tget_tree().quit(-13)\n')
+    file_write.write('\tvar timers_d : Dictionary = dict_state["timers"] as Dictionary\n')
+    file_write.write('\tvar variables_d : Dictionary = dict_state["variables"] as Dictionary\n')
+    for t in timers:
+        file_write.write('\ttimer_expire[%s_TIMER] = timers_d["%s"]\n' % ( t.upper(), t ))
+    for v in variables:
+        file_write.write('\t%s_v = variables_d["%s"]\n' % ( v, v ))
+    file_write.write("\n")
+
 def generate_specific(
     config_filepath,
     controls,
@@ -1506,6 +1543,8 @@ def generate_specific(
                     '\tprint("%s = %%s" %% (%s_v))\n' % (s["Name"], s["Name"])
                 )
         specific_script.write("\n")
+        # Marshall/unmarshal
+        generate_save_load(specific_script, symbols)
         # Compute 'can_move' based on "Rules/Controlable".
         specific_script.write("func can_move() -> bool:\n")
         if len(can_move_conditions) == 0:
